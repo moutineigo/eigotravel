@@ -16,6 +16,8 @@ async function main() {
   const map = createBaseMap('map');
   const markersLayer = L.layerGroup().addTo(map);
 
+  setupMenuToggle(map);
+
   const spots = await loadSpots();
   const entries: MarkerEntry[] = spots.map((spot) => ({
     spot,
@@ -40,6 +42,28 @@ async function main() {
   refreshVisibility();
 
   renderFilterPanel(entries, visibleCategories, visibleRegions, refreshVisibility);
+}
+
+/** ハンバーガーボタンで左メニューの開閉を切り替える */
+function setupMenuToggle(map: L.Map) {
+  const toggle = document.getElementById('menu-toggle');
+  const menu = document.getElementById('side-menu');
+  const icon = toggle?.querySelector('.menu-toggle__icon');
+  if (!toggle || !menu) return;
+
+  function setOpen(open: boolean) {
+    menu?.classList.toggle('side-menu--open', open);
+    toggle?.setAttribute('aria-expanded', String(open));
+    toggle?.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
+    if (icon) icon.textContent = open ? '✕' : '☰';
+  }
+
+  toggle.addEventListener('click', () => {
+    setOpen(!menu.classList.contains('side-menu--open'));
+  });
+
+  // 地図をクリックしたらメニューを閉じる（メニューを開いたまま地図を操作しやすくする）
+  map.on('click', () => setOpen(false));
 }
 
 async function loadSpots(): Promise<Spot[]> {

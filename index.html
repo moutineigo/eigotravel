@@ -6,12 +6,20 @@
     <title>おすすめマップ</title>
   </head>
   <body>
-    <header class="site-header">
-      <h1>おすすめマップ</h1>
-      <p class="site-header__desc">自分が実際に行っておすすめできる場所だけを集めた地図です</p>
-    </header>
     <div id="map"></div>
-    <div id="filter-panel" class="filter-panel"></div>
+
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-label="メニューを開く" aria-expanded="false">
+      <span class="menu-toggle__icon">☰</span>
+    </button>
+
+    <aside id="side-menu" class="side-menu">
+      <div class="side-menu__header">
+        <h1>おすすめマップ</h1>
+        <p class="side-menu__desc">自分が実際に行っておすすめできる場所だけを集めた地図です</p>
+      </div>
+      <div id="filter-panel" class="filter-panel"></div>
+    </aside>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
