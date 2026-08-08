@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import { createBaseMap, createSpotIcon } from '../map-core';
+import { createBaseMap, createSpotIcon, createNewSpotIcon } from '../map-core';
 import { CATEGORIES, CATEGORY_KEYS } from '../categories';
 import { REGIONS, REGION_KEYS } from '../regions';
 import type { Spot, Category, Region } from '../types';
@@ -140,7 +140,7 @@ map.on('click', (e: L.LeafletMouseEvent) => {
   if (pinMarker) {
     pinMarker.setLatLng(e.latlng);
   } else {
-    pinMarker = L.marker(e.latlng, { draggable: true }).addTo(map);
+    pinMarker = L.marker(e.latlng, { draggable: true, icon: createNewSpotIcon() }).addTo(map);
     pinMarker.on('drag', (ev) => {
       const pos = (ev.target as L.Marker).getLatLng();
       el.lat.value = String(pos.lat);

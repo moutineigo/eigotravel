@@ -36,3 +36,18 @@ export function createSpotIcon(category: Category): L.DivIcon {
     popupAnchor: [0, -15]
   });
 }
+
+/**
+ * 管理画面で「新しく登録する場所」の位置決めに使うピン。
+ * Leafletのデフォルトアイコンはバンドラー環境だと画像パスが解決できず
+ * 壊れて表示されることがあるため、必ずこちらの自前アイコンを使う。
+ */
+export function createNewSpotIcon(): L.DivIcon {
+  return L.divIcon({
+    className: '',
+    html: `<div class="spot-marker spot-marker--new" style="border-color:#e63946"><span>📍</span></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17]
+  });
+}
