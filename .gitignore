@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-admin/
 *.log
 .DS_Store
 .env.deploy

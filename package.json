@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:admin": "vite build --config vite.admin.config.ts",
     "preview": "vite preview",
     "admin": "node admin-server/server.mjs",
     "dev:all": "concurrently -k -n WEB,ADMIN -c blue,green \"npm:dev\" \"npm:admin\""

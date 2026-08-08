@@ -6,7 +6,9 @@ import { CATEGORIES, CATEGORY_KEYS } from '../categories';
 import { REGIONS, REGION_KEYS } from '../regions';
 import type { Spot, Category, Region } from '../types';
 
-const API_BASE = 'http://localhost:5175';
+// 開発時(vite dev)はローカルのAPIサーバー(admin-server/)、
+// 本番ビルド時は同じディレクトリ配下の api/ (さくらのCGI)を相対パスで叩く
+const API_BASE = import.meta.env.DEV ? 'http://localhost:5175' : '.';
 
 const map = createBaseMap('admin-map');
 let pinMarker: L.Marker | null = null;
@@ -24,11 +26,46 @@ const el = {
   url: document.getElementById('f-url') as HTMLInputElement,
   tags: document.getElementById('f-tags') as HTMLInputElement,
   photos: document.getElementById('f-photos') as HTMLInputElement,
+  photoPreview: document.getElementById('photo-preview') as HTMLElement,
   form: document.getElementById('spot-form') as HTMLFormElement,
   message: document.getElementById('form-message') as HTMLElement,
   list: document.getElementById('spot-list') as HTMLElement,
   count: document.getElementById('spot-count') as HTMLElement
 };
+
+let previewUrls: string[] = [];
+
+function clearPhotoPreview() {
+  for (const url of previewUrls) URL.revokeObjectURL(url);
+  previewUrls = [];
+  el.photoPreview.innerHTML = '';
+}
+
+/** 選択した写真をサムネイル表示する（複数選択できていることが一目で分かるように） */
+function renderPhotoPreview(files: FileList | null) {
+  clearPhotoPreview();
+  if (!files || files.length === 0) return;
+
+  for (const file of files) {
+    const url = URL.createObjectURL(file);
+    previewUrls.push(url);
+
+    const item = document.createElement('div');
+    item.className = 'photo-preview__item';
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = file.name;
+    item.appendChild(img);
+    el.photoPreview.appendChild(item);
+  }
+
+  const count = document.createElement('div');
+  count.className = 'photo-preview__count';
+  count.textContent = `${files.length}枚選択中`;
+  el.photoPreview.appendChild(count);
+}
+
+el.photos.addEventListener('change', () => renderPhotoPreview(el.photos.files));
 
 function initCategorySelect() {
   for (const key of CATEGORY_KEYS) {
@@ -112,7 +149,8 @@ async function refresh() {
     renderExisting(spots);
   } catch (err) {
     console.error(err);
-    setMessage('管理APIサーバーに接続できません。`npm run admin` を起動してください。', 'error');
+    const hint = import.meta.env.DEV ? '`npm run admin` を起動してください。' : 'しばらくしてから再度お試しください。';
+    setMessage(`管理APIサーバーに接続できません。${hint}`, 'error');
   }
 }
 
@@ -149,7 +187,8 @@ el.form.addEventListener('submit', async (e) => {
     el.form.reset();
     el.lat.value = '';
     el.lng.value = '';
-    el.latlngDisplay.textContent = '地図をクリックして位置を選択してください';
+    el.latlngDisplay.textContent = '📍 地図をタップして位置を選択してください';
+    clearPhotoPreview();
     if (pinMarker) {
       map.removeLayer(pinMarker);
       pinMarker = null;
