@@ -74,7 +74,7 @@ app.get('/api/spots', async (_req, res) => {
 });
 
 app.post('/api/spots', upload.array('photos', 8), async (req, res) => {
-  const { name, category, lat, lng, description, address, url, tags } = req.body;
+  const { name, category, region, lat, lng, description, address, url, tags } = req.body;
   if (!name || !category || lat === undefined || lng === undefined) {
     return res.status(400).json({ error: 'name, category, lat, lng は必須です' });
   }
@@ -85,6 +85,7 @@ app.post('/api/spots', upload.array('photos', 8), async (req, res) => {
     id,
     name,
     category,
+    region: region || undefined,
     lat: parseFloat(lat),
     lng: parseFloat(lng),
     description: description || '',
@@ -107,13 +108,14 @@ app.put('/api/spots/:id', upload.array('photos', 8), async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const existing = spots[idx];
-  const { name, category, lat, lng, description, address, url, tags } = req.body;
+  const { name, category, region, lat, lng, description, address, url, tags } = req.body;
   const newPhotos = await saveUploadedPhotos(existing.id, req.files);
 
   const updated = {
     ...existing,
     name: name ?? existing.name,
     category: category ?? existing.category,
+    region: region !== undefined ? region || undefined : existing.region,
     lat: lat !== undefined ? parseFloat(lat) : existing.lat,
     lng: lng !== undefined ? parseFloat(lng) : existing.lng,
     description: description ?? existing.description,

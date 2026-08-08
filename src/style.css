@@ -71,6 +71,20 @@ body {
   margin-bottom: 6px;
 }
 
+.filter-panel__group-title {
+  font-weight: bold;
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 8px;
+  border-top: 1px solid #eee;
+  padding-top: 6px;
+}
+
+.filter-panel__group-title:first-of-type {
+  border-top: none;
+  margin-top: 0;
+}
+
 .filter-panel label {
   display: flex;
   align-items: center;

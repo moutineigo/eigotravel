@@ -3,7 +3,8 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { createBaseMap, createSpotIcon } from '../map-core';
 import { CATEGORIES, CATEGORY_KEYS } from '../categories';
-import type { Spot, Category } from '../types';
+import { REGIONS, REGION_KEYS } from '../regions';
+import type { Spot, Category, Region } from '../types';
 
 const API_BASE = 'http://localhost:5175';
 
@@ -17,6 +18,7 @@ const el = {
   latlngDisplay: document.getElementById('f-latlng') as HTMLElement,
   name: document.getElementById('f-name') as HTMLInputElement,
   category: document.getElementById('f-category') as HTMLSelectElement,
+  region: document.getElementById('f-region') as HTMLSelectElement,
   description: document.getElementById('f-description') as HTMLTextAreaElement,
   address: document.getElementById('f-address') as HTMLInputElement,
   url: document.getElementById('f-url') as HTMLInputElement,
@@ -34,6 +36,15 @@ function initCategorySelect() {
     opt.value = key;
     opt.textContent = CATEGORIES[key].label;
     el.category.appendChild(opt);
+  }
+}
+
+function initRegionSelect() {
+  for (const key of REGION_KEYS) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = REGIONS[key].label;
+    el.region.appendChild(opt);
   }
 }
 
@@ -75,7 +86,8 @@ function renderExisting(spots: Spot[]) {
     const li = document.createElement('li');
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
-    nameSpan.textContent = `[${CATEGORIES[spot.category as Category]?.label ?? spot.category}] ${spot.name}`;
+    const regionLabel = spot.region ? REGIONS[spot.region as Region]?.label : '';
+    nameSpan.textContent = `[${CATEGORIES[spot.category as Category]?.label ?? spot.category}${regionLabel ? '/' + regionLabel : ''}] ${spot.name}`;
     const delBtn = document.createElement('button');
     delBtn.textContent = '削除';
     delBtn.addEventListener('click', () => deleteSpot(spot.id));
@@ -115,6 +127,7 @@ el.form.addEventListener('submit', async (e) => {
   const fd = new FormData();
   fd.set('name', el.name.value);
   fd.set('category', el.category.value);
+  fd.set('region', el.region.value);
   fd.set('lat', el.lat.value);
   fd.set('lng', el.lng.value);
   fd.set('description', el.description.value);
@@ -158,4 +171,5 @@ function escapeHtml(s: string): string {
 }
 
 initCategorySelect();
+initRegionSelect();
 refresh();

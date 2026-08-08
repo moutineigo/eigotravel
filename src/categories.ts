@@ -12,6 +12,8 @@ export const CATEGORIES: Record<Category, CategoryMeta> = {
   onsen: { label: '温泉・銭湯', color: '#118ab2' },
   gourmet: { label: 'グルメ', color: '#f4a261' },
   sightseeing: { label: '観光名所', color: '#2a9d8f' },
+  lodging: { label: '宿泊施設', color: '#8d99ae' },
+  church: { label: '教会', color: '#9d4edd' },
   shop: { label: 'ショップ', color: '#ffb703' },
   other: { label: 'その他', color: '#6c757d' }
 };

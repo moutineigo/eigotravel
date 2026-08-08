@@ -3,29 +3,43 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { createBaseMap, createSpotIcon } from './map-core';
 import { CATEGORIES, CATEGORY_KEYS } from './categories';
-import type { Category, Spot } from './types';
+import { REGIONS, REGION_KEYS } from './regions';
+import { escapeHtml, escapeAttr, linkifyText } from './format';
+import type { Category, Region, Spot } from './types';
+
+interface MarkerEntry {
+  spot: Spot;
+  marker: L.Marker;
+}
 
 async function main() {
   const map = createBaseMap('map');
+  const markersLayer = L.layerGroup().addTo(map);
 
   const spots = await loadSpots();
+  const entries: MarkerEntry[] = spots.map((spot) => ({
+    spot,
+    marker: L.marker([spot.lat, spot.lng], { icon: createSpotIcon(spot.category) }).bindPopup(
+      renderPopup(spot)
+    )
+  }));
 
-  // カテゴリごとにレイヤーグループを分けておき、フィルタパネルで表示/非表示を切り替える
-  const layersByCategory = new Map<Category, L.LayerGroup>();
-  for (const key of CATEGORY_KEYS) {
-    const group = L.layerGroup().addTo(map);
-    layersByCategory.set(key, group);
+  const visibleCategories = new Set<Category>(CATEGORY_KEYS);
+  const visibleRegions = new Set<Region>(REGION_KEYS);
+
+  function refreshVisibility() {
+    markersLayer.clearLayers();
+    for (const { spot, marker } of entries) {
+      const categoryOk = visibleCategories.has(spot.category);
+      const regionOk = !spot.region || visibleRegions.has(spot.region);
+      if (categoryOk && regionOk) {
+        markersLayer.addLayer(marker);
+      }
+    }
   }
+  refreshVisibility();
 
-  for (const spot of spots) {
-    const marker = L.marker([spot.lat, spot.lng], {
-      icon: createSpotIcon(spot.category)
-    });
-    marker.bindPopup(renderPopup(spot));
-    layersByCategory.get(spot.category)?.addLayer(marker);
-  }
-
-  renderFilterPanel(spots, layersByCategory, map);
+  renderFilterPanel(entries, visibleCategories, visibleRegions, refreshVisibility);
 }
 
 async function loadSpots(): Promise<Spot[]> {
@@ -48,6 +62,8 @@ function renderPopup(spot: Spot): HTMLElement {
     ? `<img class="photo" src="${escapeAttr(spot.photos[0])}" alt="">`
     : '';
 
+  const regionLabel = spot.region ? REGIONS[spot.region]?.label : '';
+
   const tags = spot.tags?.length
     ? `<div class="tags">${spot.tags
         .map((t) => `<span class="tag">${escapeHtml(t)}</span>`)
@@ -59,10 +75,10 @@ function renderPopup(spot: Spot): HTMLElement {
     : '';
 
   el.innerHTML = `
-    <span class="category-badge" style="background:${meta.color}">${meta.label}</span>
+    <span class="category-badge" style="background:${meta.color}">${meta.label}${regionLabel ? ` / ${escapeHtml(regionLabel)}` : ''}</span>
     <h3>${escapeHtml(spot.name)}</h3>
     ${photo}
-    ${spot.description ? `<p class="desc">${escapeHtml(spot.description)}</p>` : ''}
+    ${spot.description ? `<p class="desc">${linkifyText(spot.description)}</p>` : ''}
     ${spot.address ? `<p class="address">${escapeHtml(spot.address)}</p>` : ''}
     ${tags}
     ${link}
@@ -71,65 +87,99 @@ function renderPopup(spot: Spot): HTMLElement {
 }
 
 function renderFilterPanel(
-  spots: Spot[],
-  layersByCategory: Map<Category, L.LayerGroup>,
-  map: L.Map
+  entries: MarkerEntry[],
+  visibleCategories: Set<Category>,
+  visibleRegions: Set<Region>,
+  onChange: () => void
 ) {
   const panel = document.getElementById('filter-panel');
   if (!panel) return;
 
-  const counts = new Map<Category, number>();
-  for (const s of spots) counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
+  const categoryCounts = new Map<Category, number>();
+  const regionCounts = new Map<Region, number>();
+  for (const { spot } of entries) {
+    categoryCounts.set(spot.category, (categoryCounts.get(spot.category) ?? 0) + 1);
+    if (spot.region) {
+      regionCounts.set(spot.region, (regionCounts.get(spot.region) ?? 0) + 1);
+    }
+  }
 
   const title = document.createElement('div');
   title.className = 'filter-panel__title';
-  title.textContent = `カテゴリ (全${spots.length}件)`;
+  title.textContent = `全${entries.length}件`;
   panel.appendChild(title);
 
-  for (const key of CATEGORY_KEYS) {
-    const count = counts.get(key) ?? 0;
-    if (count === 0) continue; // データが無いカテゴリは表示しない
+  appendFilterGroup(
+    panel,
+    'カテゴリ',
+    CATEGORY_KEYS.map((key) => ({
+      key,
+      label: CATEGORIES[key].label,
+      color: CATEGORIES[key].color,
+      count: categoryCounts.get(key) ?? 0
+    })),
+    visibleCategories,
+    onChange
+  );
 
-    const meta = CATEGORIES[key];
+  if (regionCounts.size > 0) {
+    appendFilterGroup(
+      panel,
+      '地域',
+      REGION_KEYS.map((key) => ({
+        key,
+        label: REGIONS[key].label,
+        color: '#adb5bd',
+        count: regionCounts.get(key) ?? 0
+      })),
+      visibleRegions,
+      onChange
+    );
+  }
+}
+
+function appendFilterGroup<T extends string>(
+  panel: HTMLElement,
+  groupLabel: string,
+  items: { key: T; label: string; color: string; count: number }[],
+  visibleSet: Set<T>,
+  onChange: () => void
+) {
+  const groupTitle = document.createElement('div');
+  groupTitle.className = 'filter-panel__group-title';
+  groupTitle.textContent = groupLabel;
+  panel.appendChild(groupTitle);
+
+  for (const item of items) {
+    if (item.count === 0) continue; // データが無いものは表示しない
+
     const label = document.createElement('label');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true;
     checkbox.addEventListener('change', () => {
-      const group = layersByCategory.get(key);
-      if (!group) return;
       if (checkbox.checked) {
-        group.addTo(map);
+        visibleSet.add(item.key);
       } else {
-        map.removeLayer(group);
+        visibleSet.delete(item.key);
       }
+      onChange();
     });
 
     const swatch = document.createElement('span');
     swatch.className = 'swatch';
-    swatch.style.background = meta.color;
+    swatch.style.background = item.color;
 
     const text = document.createElement('span');
-    text.textContent = meta.label;
+    text.textContent = item.label;
 
     const countEl = document.createElement('span');
     countEl.className = 'count';
-    countEl.textContent = String(count);
+    countEl.textContent = String(item.count);
 
     label.append(checkbox, swatch, text, countEl);
     panel.appendChild(label);
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function escapeAttr(s: string): string {
-  return escapeHtml(s).replace(/"/g, '&quot;');
 }
 
 main();
