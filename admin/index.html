@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>おすすめマップ - 管理画面</title>
+  </head>
+  <body>
+    <div class="admin-layout">
+      <header class="admin-header">
+        <h1>管理画面（ローカル専用）</h1>
+        <p>
+          地図をクリックしてピンの位置を決め、右のフォームで情報を入力してください。<br />
+          ※ この画面は <code>npm run admin</code> のAPIサーバーが起動している時だけ使えます。本番サイトには含まれません。
+        </p>
+      </header>
+      <div class="admin-body">
+        <div id="admin-map" class="admin-map"></div>
+        <div class="admin-sidebar">
+          <form id="spot-form">
+            <input type="hidden" id="f-lat" />
+            <input type="hidden" id="f-lng" />
+            <p id="f-latlng" class="latlng-display">地図をクリックして位置を選択してください</p>
+
+            <label>名前 <span class="req">*</span><input type="text" id="f-name" required /></label>
+
+            <label
+              >カテゴリ <span class="req">*</span>
+              <select id="f-category" required></select>
+            </label>
+
+            <label>説明<textarea id="f-description" rows="4"></textarea></label>
+            <label>住所<input type="text" id="f-address" /></label>
+            <label>URL<input type="url" id="f-url" placeholder="https://..." /></label>
+            <label>タグ（カンマ区切り）<input type="text" id="f-tags" placeholder="例: 絶景, 穴場" /></label>
+            <label>写真<input type="file" id="f-photos" accept="image/*" multiple /></label>
+
+            <button type="submit">この内容で追加する</button>
+            <p id="form-message" class="form-message"></p>
+          </form>
+
+          <hr />
+
+          <h2>登録済みスポット（<span id="spot-count">0</span>件）</h2>
+          <ul id="spot-list" class="spot-list"></ul>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/admin/main.ts"></script>
+  </body>
+</html>

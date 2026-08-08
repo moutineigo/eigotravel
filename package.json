@@ -1,0 +1,25 @@
+{
+  "name": "osusume-map",
+  "version": "0.1.0",
+  "private": true,
+  "description": "自分のおすすめ場所を地図上のピンで紹介するサイト",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "admin": "node admin-server/server.mjs",
+    "dev:all": "concurrently -k -n WEB,ADMIN -c blue,green \"npm:dev\" \"npm:admin\""
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.12",
+    "concurrently": "^9.1.0",
+    "express": "^4.21.1",
+    "multer": "^2.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
