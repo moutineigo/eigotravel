@@ -25,16 +25,16 @@ interface RegionBlockMeta {
 }
 
 export const REGION_BLOCKS: Record<RegionBlock, RegionBlockMeta> = {
-  hokkaido: { label: '北海道', center: [43.5, 142.5], zoom: 6 },
-  tohoku: { label: '東北', center: [39.0, 140.8], zoom: 7 },
-  kanto: { label: '関東', center: [36.0, 139.7], zoom: 8 },
-  hokuriku: { label: '北陸', center: [36.7, 137.2], zoom: 8 },
-  tokai: { label: '東海', center: [35.2, 137.3], zoom: 8 },
-  kinki: { label: '近畿', center: [34.7, 135.6], zoom: 8 },
-  chugoku: { label: '中国', center: [34.5, 132.8], zoom: 7 },
-  shikoku: { label: '四国', center: [33.8, 133.5], zoom: 8 },
-  kyushu: { label: '九州', center: [32.8, 130.7], zoom: 7 },
-  nansei: { label: '南西諸島', center: [26.5, 128.0], zoom: 7 },
+  hokkaido: { label: '北海道', center: [43.5, 142.5], zoom: 7 },
+  tohoku: { label: '東北', center: [39.0, 140.8], zoom: 8 },
+  kanto: { label: '関東', center: [36.0, 139.7], zoom: 9 },
+  hokuriku: { label: '北陸', center: [36.7, 137.2], zoom: 9 },
+  tokai: { label: '東海', center: [35.2, 137.3], zoom: 9 },
+  kinki: { label: '近畿', center: [34.7, 135.6], zoom: 9 },
+  chugoku: { label: '中国', center: [34.5, 132.8], zoom: 8 },
+  shikoku: { label: '四国', center: [33.8, 133.5], zoom: 9 },
+  kyushu: { label: '九州', center: [32.8, 130.7], zoom: 8 },
+  nansei: { label: '南西諸島', center: [26.5, 128.0], zoom: 8 },
   france: { label: 'フランス', center: [44.8, 3.3], zoom: 8 }
 };
 
