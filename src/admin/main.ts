@@ -34,19 +34,60 @@ const el = {
 };
 
 let previewUrls: string[] = [];
+/** 変換後（JPEG化後）の実際にアップロードするファイル一覧 */
+let preparedFiles: File[] = [];
 
 function clearPhotoPreview() {
   for (const url of previewUrls) URL.revokeObjectURL(url);
   previewUrls = [];
+  preparedFiles = [];
   el.photoPreview.innerHTML = '';
 }
 
-/** 選択した写真をサムネイル表示する（複数選択できていることが一目で分かるように） */
-function renderPhotoPreview(files: FileList | null) {
+/**
+ * iPhoneの写真はHEIC形式で選ばれることが多く、そのままアップロードすると
+ * Windows/Chromeなどで画像が表示できない。ここでJPEGに変換してから使う。
+ * 変換に失敗した場合は元のファイルのまま返す（最低限アップロード自体は通す）。
+ */
+async function convertToJpeg(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.9)
+    );
+    if (!blob) return file;
+
+    const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+    return new File([blob], newName, { type: 'image/jpeg' });
+  } catch (err) {
+    console.warn('画像のJPEG変換に失敗。元ファイルのまま送信します:', file.name, err);
+    return file;
+  }
+}
+
+/** 選択した写真をJPEGに変換しつつ、サムネイル表示する */
+async function handlePhotoSelection(files: FileList | null) {
   clearPhotoPreview();
   if (!files || files.length === 0) return;
 
-  for (const file of files) {
+  const count = document.createElement('div');
+  count.className = 'photo-preview__count';
+  count.textContent = `${files.length}枚を処理中...`;
+  el.photoPreview.appendChild(count);
+
+  const converted = await Promise.all(Array.from(files).map(convertToJpeg));
+  preparedFiles = converted;
+
+  el.photoPreview.innerHTML = '';
+  for (const file of converted) {
     const url = URL.createObjectURL(file);
     previewUrls.push(url);
 
@@ -59,13 +100,18 @@ function renderPhotoPreview(files: FileList | null) {
     el.photoPreview.appendChild(item);
   }
 
-  const count = document.createElement('div');
-  count.className = 'photo-preview__count';
-  count.textContent = `${files.length}枚選択中`;
-  el.photoPreview.appendChild(count);
+  const countEl = document.createElement('div');
+  countEl.className = 'photo-preview__count';
+  countEl.textContent = `${converted.length}枚選択中`;
+  el.photoPreview.appendChild(countEl);
 }
 
-el.photos.addEventListener('change', () => renderPhotoPreview(el.photos.files));
+el.photos.addEventListener('change', () => {
+  handlePhotoSelection(el.photos.files).catch((err) => {
+    console.error(err);
+    setMessage('写真の処理に失敗しました', 'error');
+  });
+});
 
 function initCategorySelect() {
   for (const key of CATEGORY_KEYS) {
@@ -172,7 +218,7 @@ el.form.addEventListener('submit', async (e) => {
   fd.set('address', el.address.value);
   fd.set('url', el.url.value);
   fd.set('tags', el.tags.value);
-  for (const file of el.photos.files ?? []) {
+  for (const file of preparedFiles) {
     fd.append('photos', file);
   }
 
