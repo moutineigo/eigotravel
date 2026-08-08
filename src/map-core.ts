@@ -9,7 +9,9 @@ export function createBaseMap(
 ): L.Map {
   const map = L.map(el, {
     center: opts.center ?? [36.5, 138],
-    zoom: opts.zoom ?? 6
+    zoom: opts.zoom ?? 6,
+    // デフォルトの左上ズームボタンはハンバーガーボタンと重なるため無効化し、右下に置き直す
+    zoomControl: false
   });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -17,6 +19,8 @@ export function createBaseMap(
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
 
   return map;
 }
