@@ -9,7 +9,7 @@
 - **フロント**: Vite + TypeScript（フレームワーク無しのシンプル構成）
 - **データ**: DB無し。[public/data/spots.json](public/data/spots.json) 1ファイルで全スポットを管理
 - **管理画面**: ローカルでだけ動く小さなAPIサーバー（`admin-server/`）。地図をクリックしてピンを追加・削除できる
-- **公開**: `npm run build` で作った静的ファイルをさくらインターネットのサーバーにアップロードするだけ
+- **公開**: `npm run build` で作った静的ファイルをさくらインターネットのサーバーにアップロードするだけ（本番運用中: https://eigo.travel/ ）
 
 旧サイト（Lit + Redux + Vaadin + Flask + SQLite + Google Maps）に比べて依存関係を大幅に減らし、
 「スポットを1件追加する」だけの変更が誰でもすぐできる構成にしています。
@@ -77,8 +77,12 @@ npm run build
 bash scripts/deploy.sh
 ```
 
-`dist/` の中身が `rsync` でサーバーにアップロードされます（SSH接続が必要）。
+`dist/` の中身がサーバーの公開フォルダにアップロードされます（`rsync`があればそちらを使用、無ければ`scp`で代替。SSH接続が必要）。
 さくらのコントロールパネルでSSHが有効になっていない場合は、先に「サーバー情報」画面で有効化してください。
+
+> 旧サイト（Lit + Flask + SQLiteの構成）はサーバー側の `/home/eigo55/www/` から削除済みです。
+> 削除前のバックアップが `/home/eigo55/backup-old-eigo55-website-www-20260809.tar.gz` に残っています
+> （`sqlite/app.db` の生データも含む。移行済みデータは `public/data/spots.json` にあります）。
 
 ## ディレクトリ構成
 

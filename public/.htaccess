@@ -1,0 +1,29 @@
+# GZIP圧縮設定（旧サイトの設定を踏襲）
+
+SetOutputFilter DEFLATE
+
+# レガシーブラウザは圧縮しない
+BrowserMatch ^Mozilla/4\.0[678] no-gzip
+BrowserMatch ^Mozilla/4 gzip-only-text/html
+BrowserMatch \bMSIE\s(7|8) !no-gzip !gzip-only-text/html
+
+Header append Vary Accept-Encoding env=!dont-vary
+
+# 画像は再圧縮しない
+SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|ico|webp)$ no-gzip dont-vary
+
+AddOutputFilterByType DEFLATE text/plain
+AddOutputFilterByType DEFLATE text/html
+AddOutputFilterByType DEFLATE text/xml
+AddOutputFilterByType DEFLATE text/css
+AddOutputFilterByType DEFLATE text/js
+AddOutputFilterByType DEFLATE image/svg+xml
+AddOutputFilterByType DEFLATE application/xml
+AddOutputFilterByType DEFLATE application/xhtml+xml
+AddOutputFilterByType DEFLATE application/rss+xml
+AddOutputFilterByType DEFLATE application/atom_xml
+AddOutputFilterByType DEFLATE application/javascript
+AddOutputFilterByType DEFLATE application/x-javascript
+AddOutputFilterByType DEFLATE application/x-font-ttf
+AddOutputFilterByType DEFLATE application/x-font-opentype
+AddOutputFilterByType DEFLATE application/vnd.ms-fontobject

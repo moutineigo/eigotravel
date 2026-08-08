@@ -29,6 +29,17 @@ if [ ! -d "$DIR/dist" ]; then
   exit 1
 fi
 
-echo "🚀 ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH} へアップロードします"
-rsync -avz --delete "$DIR/dist/" "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
+echo "🚀 ${TARGET}:${DEPLOY_PATH} へアップロードします"
+
+if command -v rsync >/dev/null 2>&1; then
+  # rsyncがあればこちらの方が高速（差分転送・不要ファイルの自動削除）
+  rsync -avz --delete "$DIR/dist/" "${TARGET}:${DEPLOY_PATH}/"
+else
+  # Windows(Git Bash)にrsyncが無い環境向けのフォールバック。
+  # 公開フォルダの中身を一旦空にしてから、dist/ を丸ごとアップロードし直す
+  echo "ℹ️  rsync が見つからないため scp で代替します"
+  ssh "$TARGET" "find '${DEPLOY_PATH}' -mindepth 1 -delete"
+  scp -r "$DIR/dist/." "${TARGET}:${DEPLOY_PATH}/"
+fi
 echo "✅ 完了"
