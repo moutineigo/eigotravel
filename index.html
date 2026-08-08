@@ -12,12 +12,31 @@
       <span class="menu-toggle__icon">☰</span>
     </button>
 
+    <!-- B: カテゴリの表示/非表示は、メニューとは独立して常に右上に表示する -->
+    <div id="category-panel" class="category-panel"></div>
+
     <aside id="side-menu" class="side-menu">
       <div class="side-menu__header">
         <h1>おすすめマップ</h1>
-        <p class="side-menu__desc">自分が実際に行っておすすめできる場所だけを集めた地図です</p>
       </div>
-      <div id="filter-panel" class="filter-panel"></div>
+
+      <!-- A-1: 簡単なメッセージBOX -->
+      <div class="message-box">
+        自分が実際に行っておすすめできる場所だけを集めた地図です。<br />
+        気になる地域を選んで探してみてください。
+      </div>
+
+      <!-- A-2: 地域から探す -->
+      <div class="menu-section">
+        <div class="menu-section__title">地域から探す</div>
+        <div id="region-nav" class="region-nav"></div>
+      </div>
+
+      <!-- A-3: 最近の更新 -->
+      <div class="menu-section">
+        <div class="menu-section__title">最近の更新</div>
+        <ul id="recent-updates" class="recent-updates"></ul>
+      </div>
     </aside>
 
     <script type="module" src="/src/main.ts"></script>

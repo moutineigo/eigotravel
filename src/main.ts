@@ -3,67 +3,63 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { createBaseMap, createSpotIcon } from './map-core';
 import { CATEGORIES, CATEGORY_KEYS } from './categories';
-import { REGIONS, REGION_KEYS } from './regions';
+import { REGIONS } from './regions';
+import { REGION_BLOCKS, REGION_BLOCK_KEYS, REGION_TO_BLOCK } from './region-blocks';
 import { escapeHtml, escapeAttr, linkifyText } from './format';
-import type { Category, Region, Spot } from './types';
+import type { Category, Spot } from './types';
+import type { RegionBlock } from './region-blocks';
 
 interface MarkerEntry {
   spot: Spot;
   marker: L.Marker;
+  block: RegionBlock | null;
 }
 
 async function main() {
   const map = createBaseMap('map');
   const markersLayer = L.layerGroup().addTo(map);
-
-  setupMenuToggle(map);
+  const menu = setupMenuToggle(map);
 
   const spots = await loadSpots();
   const entries: MarkerEntry[] = spots.map((spot) => ({
     spot,
     marker: L.marker([spot.lat, spot.lng], { icon: createSpotIcon(spot.category) }).bindPopup(
       renderPopup(spot)
-    )
+    ),
+    block: spot.region ? (REGION_TO_BLOCK[spot.region] ?? null) : null
   }));
 
   const visibleCategories = new Set<Category>(CATEGORY_KEYS);
-  const visibleRegions = new Set<Region>(REGION_KEYS);
+  let currentBlock: RegionBlock | null = null;
 
   function refreshVisibility() {
     markersLayer.clearLayers();
-    for (const { spot, marker } of entries) {
+    for (const { spot, marker, block } of entries) {
       const categoryOk = visibleCategories.has(spot.category);
-      const regionOk = !spot.region || visibleRegions.has(spot.region);
-      if (categoryOk && regionOk) {
+      const blockOk = !currentBlock || block === currentBlock;
+      if (categoryOk && blockOk) {
         markersLayer.addLayer(marker);
       }
     }
   }
   refreshVisibility();
 
-  renderFilterPanel(entries, visibleCategories, visibleRegions, refreshVisibility);
-}
+  // B: カテゴリの表示/非表示は右上に独立して常に表示
+  renderCategoryPanel(entries, visibleCategories, refreshVisibility);
 
-/** ハンバーガーボタンで左メニューの開閉を切り替える */
-function setupMenuToggle(map: L.Map) {
-  const toggle = document.getElementById('menu-toggle');
-  const menu = document.getElementById('side-menu');
-  const icon = toggle?.querySelector('.menu-toggle__icon');
-  if (!toggle || !menu) return;
-
-  function setOpen(open: boolean) {
-    menu?.classList.toggle('side-menu--open', open);
-    toggle?.setAttribute('aria-expanded', String(open));
-    toggle?.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
-    if (icon) icon.textContent = open ? '✕' : '☰';
-  }
-
-  toggle.addEventListener('click', () => {
-    setOpen(!menu.classList.contains('side-menu--open'));
+  // A-2: 地域から探す
+  renderRegionNav(map, entries, (block) => {
+    currentBlock = block;
+    refreshVisibility();
+    menu.close();
   });
 
-  // 地図をクリックしたらメニューを閉じる（メニューを開いたまま地図を操作しやすくする）
-  map.on('click', () => setOpen(false));
+  // A-3: 最近の更新
+  renderRecentUpdates(entries, (entry) => {
+    map.flyTo([entry.spot.lat, entry.spot.lng], 14);
+    entry.marker.openPopup();
+    menu.close();
+  });
 }
 
 async function loadSpots(): Promise<Spot[]> {
@@ -75,6 +71,29 @@ async function loadSpots(): Promise<Spot[]> {
     console.error('スポットデータの読み込みに失敗しました', err);
     return [];
   }
+}
+
+/** ハンバーガーボタンで左メニューの開閉を切り替える */
+function setupMenuToggle(map: L.Map): { close: () => void } {
+  const toggle = document.getElementById('menu-toggle');
+  const menu = document.getElementById('side-menu');
+  const icon = toggle?.querySelector('.menu-toggle__icon');
+
+  function setOpen(open: boolean) {
+    menu?.classList.toggle('side-menu--open', open);
+    toggle?.setAttribute('aria-expanded', String(open));
+    toggle?.setAttribute('aria-label', open ? 'メニューを閉じる' : 'メニューを開く');
+    if (icon) icon.textContent = open ? '✕' : '☰';
+  }
+
+  toggle?.addEventListener('click', () => {
+    setOpen(!menu?.classList.contains('side-menu--open'));
+  });
+
+  // 地図をクリックしたらメニューを閉じる（メニューを開いたまま地図を操作しやすくする）
+  map.on('click', () => setOpen(false));
+
+  return { close: () => setOpen(false) };
 }
 
 function renderPopup(spot: Spot): HTMLElement {
@@ -110,107 +129,153 @@ function renderPopup(spot: Spot): HTMLElement {
   return el;
 }
 
-function renderFilterPanel(
+/** B: 右上に常時表示するカテゴリの表示/非表示パネル */
+function renderCategoryPanel(
   entries: MarkerEntry[],
   visibleCategories: Set<Category>,
-  visibleRegions: Set<Region>,
   onChange: () => void
 ) {
-  const panel = document.getElementById('filter-panel');
+  const panel = document.getElementById('category-panel');
   if (!panel) return;
 
-  const categoryCounts = new Map<Category, number>();
-  const regionCounts = new Map<Region, number>();
+  const counts = new Map<Category, number>();
   for (const { spot } of entries) {
-    categoryCounts.set(spot.category, (categoryCounts.get(spot.category) ?? 0) + 1);
-    if (spot.region) {
-      regionCounts.set(spot.region, (regionCounts.get(spot.region) ?? 0) + 1);
-    }
+    counts.set(spot.category, (counts.get(spot.category) ?? 0) + 1);
   }
 
   const title = document.createElement('div');
-  title.className = 'filter-panel__title';
-  title.textContent = `全${entries.length}件`;
+  title.className = 'category-panel__title';
+  title.textContent = `カテゴリ (全${entries.length}件)`;
   panel.appendChild(title);
 
-  appendFilterGroup(
-    panel,
-    'カテゴリ',
-    CATEGORY_KEYS.map((key) => ({
-      key,
-      label: CATEGORIES[key].label,
-      color: CATEGORIES[key].color,
-      icon: CATEGORIES[key].icon,
-      count: categoryCounts.get(key) ?? 0
-    })),
-    visibleCategories,
-    onChange
-  );
+  for (const key of CATEGORY_KEYS) {
+    const count = counts.get(key) ?? 0;
+    if (count === 0) continue; // データが無いカテゴリは表示しない
 
-  if (regionCounts.size > 0) {
-    appendFilterGroup(
-      panel,
-      '地域',
-      REGION_KEYS.map((key) => ({
-        key,
-        label: REGIONS[key].label,
-        color: '#adb5bd',
-        count: regionCounts.get(key) ?? 0
-      })),
-      visibleRegions,
-      onChange
-    );
-  }
-}
-
-function appendFilterGroup<T extends string>(
-  panel: HTMLElement,
-  groupLabel: string,
-  items: { key: T; label: string; color: string; icon?: string; count: number }[],
-  visibleSet: Set<T>,
-  onChange: () => void
-) {
-  const groupTitle = document.createElement('div');
-  groupTitle.className = 'filter-panel__group-title';
-  groupTitle.textContent = groupLabel;
-  panel.appendChild(groupTitle);
-
-  for (const item of items) {
-    if (item.count === 0) continue; // データが無いものは表示しない
-
+    const meta = CATEGORIES[key];
     const label = document.createElement('label');
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = true;
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) {
-        visibleSet.add(item.key);
+        visibleCategories.add(key);
       } else {
-        visibleSet.delete(item.key);
+        visibleCategories.delete(key);
       }
       onChange();
     });
 
     const swatch = document.createElement('span');
-    if (item.icon) {
-      swatch.className = 'swatch swatch--icon';
-      swatch.style.borderColor = item.color;
-      swatch.textContent = item.icon;
-    } else {
-      swatch.className = 'swatch';
-      swatch.style.background = item.color;
-    }
+    swatch.className = 'swatch swatch--icon';
+    swatch.style.borderColor = meta.color;
+    swatch.textContent = meta.icon;
 
     const text = document.createElement('span');
-    text.textContent = item.label;
+    text.textContent = meta.label;
 
     const countEl = document.createElement('span');
     countEl.className = 'count';
-    countEl.textContent = String(item.count);
+    countEl.textContent = String(count);
 
     label.append(checkbox, swatch, text, countEl);
     panel.appendChild(label);
   }
+}
+
+/** A-2: 地域（地方区分）から探すナビゲーション */
+function renderRegionNav(
+  map: L.Map,
+  entries: MarkerEntry[],
+  onSelect: (block: RegionBlock | null) => void
+) {
+  const nav = document.getElementById('region-nav');
+  if (!nav) return;
+
+  const counts = new Map<RegionBlock, number>();
+  for (const { block } of entries) {
+    if (block) counts.set(block, (counts.get(block) ?? 0) + 1);
+  }
+
+  function setActive(button: HTMLButtonElement) {
+    nav?.querySelectorAll('button').forEach((b) => b.classList.remove('region-nav__btn--active'));
+    button.classList.add('region-nav__btn--active');
+  }
+
+  const allButton = document.createElement('button');
+  allButton.type = 'button';
+  allButton.className = 'region-nav__btn region-nav__btn--all region-nav__btn--active';
+  allButton.textContent = `全国 (${entries.length})`;
+  allButton.addEventListener('click', () => {
+    setActive(allButton);
+    map.flyTo([36.5, 138], 6);
+    onSelect(null);
+  });
+  nav.appendChild(allButton);
+
+  const grid = document.createElement('div');
+  grid.className = 'region-nav__grid';
+  nav.appendChild(grid);
+
+  for (const key of REGION_BLOCK_KEYS) {
+    const meta = REGION_BLOCKS[key];
+    const count = counts.get(key) ?? 0;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'region-nav__btn';
+    button.textContent = `${meta.label} (${count})`;
+    button.addEventListener('click', () => {
+      setActive(button);
+      map.flyTo(meta.center, meta.zoom);
+      onSelect(key);
+    });
+    grid.appendChild(button);
+  }
+}
+
+/** A-3: 最近の更新（最新20件） */
+function renderRecentUpdates(entries: MarkerEntry[], onSelect: (entry: MarkerEntry) => void) {
+  const list = document.getElementById('recent-updates');
+  if (!list) return;
+
+  const sorted = [...entries].sort(
+    (a, b) => new Date(b.spot.updatedAt).getTime() - new Date(a.spot.updatedAt).getTime()
+  );
+
+  for (const entry of sorted.slice(0, 20)) {
+    const meta = CATEGORIES[entry.spot.category] ?? CATEGORIES.other;
+    const li = document.createElement('li');
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'recent-updates__item';
+    button.addEventListener('click', () => onSelect(entry));
+
+    const icon = document.createElement('span');
+    icon.className = 'swatch swatch--icon';
+    icon.style.borderColor = meta.color;
+    icon.textContent = meta.icon;
+
+    const name = document.createElement('span');
+    name.className = 'recent-updates__name';
+    name.textContent = entry.spot.name;
+
+    const date = document.createElement('span');
+    date.className = 'recent-updates__date';
+    date.textContent = formatDate(entry.spot.updatedAt);
+
+    button.append(icon, name, date);
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
 main();
