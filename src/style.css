@@ -194,15 +194,47 @@ body {
   color: #1d1d1d;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-size: 0.85rem;
   max-width: 200px;
 }
 
+.category-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
 .category-panel__title {
   font-weight: bold;
-  margin-bottom: 6px;
   font-size: 0.8rem;
+}
+
+.category-panel__chevron {
+  flex: none;
+  opacity: 0.6;
+}
+
+.category-panel__body {
+  margin-top: 6px;
+}
+
+/* 閉じているときは本体を隠し、ヘッダーだけの小さな見た目にする */
+.category-panel--collapsed .category-panel__body {
+  display: none;
+}
+
+.category-panel--collapsed {
+  max-width: none;
 }
 
 .category-panel label {

@@ -129,7 +129,7 @@ function renderPopup(spot: Spot): HTMLElement {
   return el;
 }
 
-/** B: 右上に常時表示するカテゴリの表示/非表示パネル */
+/** B: 右上に常時表示するカテゴリの表示/非表示パネル。開閉できるようにする */
 function renderCategoryPanel(
   entries: MarkerEntry[],
   visibleCategories: Set<Category>,
@@ -143,10 +143,35 @@ function renderCategoryPanel(
     counts.set(spot.category, (counts.get(spot.category) ?? 0) + 1);
   }
 
-  const title = document.createElement('div');
+  // 開閉ヘッダー（タップで開閉）
+  const header = document.createElement('button');
+  header.type = 'button';
+  header.className = 'category-panel__header';
+
+  const title = document.createElement('span');
   title.className = 'category-panel__title';
   title.textContent = `カテゴリ (全${entries.length}件)`;
-  panel.appendChild(title);
+
+  const chevron = document.createElement('span');
+  chevron.className = 'category-panel__chevron';
+  chevron.textContent = '▾';
+
+  header.append(title, chevron);
+  panel.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'category-panel__body';
+  panel.appendChild(body);
+
+  // 画面が狭い(スマホ幅)場合は最初から閉じておく
+  const collapsedByDefault = window.innerWidth <= 600;
+  panel.classList.toggle('category-panel--collapsed', collapsedByDefault);
+  chevron.textContent = collapsedByDefault ? '▸' : '▾';
+
+  header.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('category-panel--collapsed');
+    chevron.textContent = collapsed ? '▸' : '▾';
+  });
 
   for (const key of CATEGORY_KEYS) {
     const count = counts.get(key) ?? 0;
@@ -180,7 +205,7 @@ function renderCategoryPanel(
     countEl.textContent = String(count);
 
     label.append(checkbox, swatch, text, countEl);
-    panel.appendChild(label);
+    body.appendChild(label);
   }
 }
 
