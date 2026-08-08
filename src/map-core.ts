@@ -21,14 +21,14 @@ export function createBaseMap(
   return map;
 }
 
-/** カテゴリごとに色分けした涙形ピンアイコンを作る */
+/** カテゴリごとに絵文字アイコン＋色枠の丸バッジピンを作る。色だけでなく形(絵文字)でも見分けられる */
 export function createSpotIcon(category: Category): L.DivIcon {
-  const color = CATEGORIES[category]?.color ?? CATEGORIES.other.color;
+  const meta = CATEGORIES[category] ?? CATEGORIES.other;
   return L.divIcon({
     className: '',
-    html: `<div class="spot-marker" style="background:${color}"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 19],
-    popupAnchor: [0, -18]
+    html: `<div class="spot-marker" style="border-color:${meta.color}"><span>${meta.icon}</span></div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15]
   });
 }

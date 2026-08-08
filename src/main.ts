@@ -116,6 +116,7 @@ function renderFilterPanel(
       key,
       label: CATEGORIES[key].label,
       color: CATEGORIES[key].color,
+      icon: CATEGORIES[key].icon,
       count: categoryCounts.get(key) ?? 0
     })),
     visibleCategories,
@@ -141,7 +142,7 @@ function renderFilterPanel(
 function appendFilterGroup<T extends string>(
   panel: HTMLElement,
   groupLabel: string,
-  items: { key: T; label: string; color: string; count: number }[],
+  items: { key: T; label: string; color: string; icon?: string; count: number }[],
   visibleSet: Set<T>,
   onChange: () => void
 ) {
@@ -167,8 +168,14 @@ function appendFilterGroup<T extends string>(
     });
 
     const swatch = document.createElement('span');
-    swatch.className = 'swatch';
-    swatch.style.background = item.color;
+    if (item.icon) {
+      swatch.className = 'swatch swatch--icon';
+      swatch.style.borderColor = item.color;
+      swatch.textContent = item.icon;
+    } else {
+      swatch.className = 'swatch';
+      swatch.style.background = item.color;
+    }
 
     const text = document.createElement('span');
     text.textContent = item.label;
