@@ -36,8 +36,14 @@ export interface Spot {
   address?: string;
   /** 公式サイトや参考URL */
   url?: string;
-  /** public/photos/ 以下への相対パス（例: "/photos/xxxx/1.jpg"） */
+  /** public/photos/ 以下への相対パス（例: "/photos/xxxx/1.jpg"）。フルサイズ画像 */
   photos?: string[];
+  /**
+   * サムネイル（軽量版）。photosと同じ並び順・同じ件数を想定。
+   * 一覧のグリッド表示で使い、拡大表示(ライトボックス)ではphotosの方を使う。
+   * 無い場合はフロント側でphotosにフォールバックする（旧データ互換）
+   */
+  photoThumbs?: string[];
   tags?: string[];
   createdAt: string;
   updatedAt: string;

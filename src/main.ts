@@ -105,13 +105,15 @@ function renderPopup(spot: Spot): HTMLElement {
   const el = document.createElement('div');
   el.className = 'spot-popup';
 
+  // グリッドは軽量なサムネイル（無ければフルサイズにフォールバック）、拡大表示はフルサイズを使う
   const photos = spot.photos ?? [];
+  const thumbs = spot.photoThumbs ?? [];
   const photoGrid = photos.length
     ? `<div class="photo-grid">${photos
-        .map(
-          (p, i) =>
-            `<button type="button" class="photo-grid__item" data-index="${i}"><img src="${escapeAttr(p)}" alt="" loading="lazy" /></button>`
-        )
+        .map((p, i) => {
+          const thumbSrc = thumbs[i] ?? p;
+          return `<button type="button" class="photo-grid__item" data-index="${i}"><img src="${escapeAttr(thumbSrc)}" alt="" loading="lazy" /></button>`;
+        })
         .join('')}</div>`
     : '';
 

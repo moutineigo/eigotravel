@@ -36,46 +36,69 @@ const el = {
 };
 
 let previewUrls: string[] = [];
-/** 変換後（JPEG化後）の実際にアップロードするファイル一覧 */
+/** 変換後（JPEG化後）の実際にアップロードするファイル一覧（フルサイズ） */
 let preparedFiles: File[] = [];
+/** 上と同じ並び順の軽量サムネイル（一覧表示を高速化するため） */
+let preparedThumbs: File[] = [];
+
+const THUMB_MAX_SIZE = 320;
 
 function clearPhotoPreview() {
   for (const url of previewUrls) URL.revokeObjectURL(url);
   previewUrls = [];
   preparedFiles = [];
+  preparedThumbs = [];
   el.photoPreview.innerHTML = '';
+}
+
+function canvasToJpegFile(canvas: HTMLCanvasElement, name: string, quality: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(new File([blob], name, { type: 'image/jpeg' })) : reject(new Error('toBlob失敗'))),
+      'image/jpeg',
+      quality
+    );
+  });
 }
 
 /**
  * iPhoneの写真はHEIC形式で選ばれることが多く、そのままアップロードすると
- * Windows/Chromeなどで画像が表示できない。ここでJPEGに変換してから使う。
- * 変換に失敗した場合は元のファイルのまま返す（最低限アップロード自体は通す）。
+ * Windows/Chromeなどで画像が表示できない。ここでJPEGに変換する。
+ * 同時に、一覧表示をすぐ読み込めるよう軽量なサムネイルも生成する。
+ * 変換に失敗した場合は元のファイルをフルサイズ・サムネイル両方に使う（最低限アップロード自体は通す）。
  */
-async function convertToJpeg(file: File): Promise<File> {
+async function convertToJpeg(file: File): Promise<{ full: File; thumb: File }> {
+  const baseName = file.name.replace(/\.[^.]+$/, '');
   try {
     const bitmap = await createImageBitmap(file);
     const canvas = document.createElement('canvas');
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return file;
+    if (!ctx) throw new Error('canvas 2d contextを取得できません');
     ctx.drawImage(bitmap, 0, 0);
+
+    const scale = Math.min(1, THUMB_MAX_SIZE / Math.max(bitmap.width, bitmap.height));
+    const thumbCanvas = document.createElement('canvas');
+    thumbCanvas.width = Math.round(bitmap.width * scale);
+    thumbCanvas.height = Math.round(bitmap.height * scale);
+    const thumbCtx = thumbCanvas.getContext('2d');
+    if (!thumbCtx) throw new Error('canvas 2d contextを取得できません');
+    thumbCtx.drawImage(bitmap, 0, 0, thumbCanvas.width, thumbCanvas.height);
     bitmap.close();
 
-    const blob: Blob | null = await new Promise((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.9)
-    );
-    if (!blob) return file;
-
-    const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
-    return new File([blob], newName, { type: 'image/jpeg' });
+    const [full, thumb] = await Promise.all([
+      canvasToJpegFile(canvas, `${baseName}.jpg`, 0.9),
+      canvasToJpegFile(thumbCanvas, `${baseName}.thumb.jpg`, 0.7)
+    ]);
+    return { full, thumb };
   } catch (err) {
     console.warn('画像のJPEG変換に失敗。元ファイルのまま送信します:', file.name, err);
-    return file;
+    return { full: file, thumb: file };
   }
 }
 
-/** 選択した写真をJPEGに変換しつつ、サムネイル表示する */
+/** 選択した写真をJPEGに変換（フルサイズ＋サムネイル）しつつ、サムネイルをプレビュー表示する */
 async function handlePhotoSelection(files: FileList | null) {
   clearPhotoPreview();
   if (!files || files.length === 0) return;
@@ -86,18 +109,19 @@ async function handlePhotoSelection(files: FileList | null) {
   el.photoPreview.appendChild(count);
 
   const converted = await Promise.all(Array.from(files).map(convertToJpeg));
-  preparedFiles = converted;
+  preparedFiles = converted.map((c) => c.full);
+  preparedThumbs = converted.map((c) => c.thumb);
 
   el.photoPreview.innerHTML = '';
-  for (const file of converted) {
-    const url = URL.createObjectURL(file);
+  for (const { thumb } of converted) {
+    const url = URL.createObjectURL(thumb);
     previewUrls.push(url);
 
     const item = document.createElement('div');
     item.className = 'photo-preview__item';
     const img = document.createElement('img');
     img.src = url;
-    img.alt = file.name;
+    img.alt = thumb.name;
     item.appendChild(img);
     el.photoPreview.appendChild(item);
   }
@@ -323,6 +347,9 @@ el.form.addEventListener('submit', async (e) => {
   fd.set('tags', el.tags.value);
   for (const file of preparedFiles) {
     fd.append('photos', file);
+  }
+  for (const file of preparedThumbs) {
+    fd.append('thumbnails', file);
   }
 
   setMessage('送信中...', 'ok');

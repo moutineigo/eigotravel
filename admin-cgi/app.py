@@ -19,6 +19,12 @@ from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
 
+try:
+    from PIL import Image
+    HAS_PILLOW = True
+except ImportError:
+    HAS_PILLOW = False
+
 app = Flask(__name__)
 
 # api/app.py から見て www/ は2階層上（www/<secret>/api/app.py）。
@@ -62,18 +68,55 @@ def safe_ext(filename):
     return ext if ext in ALLOWED_EXTENSIONS else '.jpg'
 
 
-def save_photos(spot_id, files):
-    paths = []
+def save_photos(spot_id, files, suffix=''):
+    """アップロードされたファイルを保存する。戻り値は (公開URLのリスト, 保存先絶対パスのリスト)"""
+    urls, abs_paths = [], []
     valid_files = [f for f in files if f and f.filename]
     if not valid_files:
-        return paths
+        return urls, abs_paths
     dir_path = os.path.join(PHOTOS_DIR, spot_id)
     os.makedirs(dir_path, exist_ok=True)
     for i, file in enumerate(valid_files, start=1):
-        filename = f'{i}{safe_ext(file.filename)}'
-        file.save(os.path.join(dir_path, filename))
-        paths.append(f'/photos/{spot_id}/{filename}')
-    return paths
+        filename = f'{i}{suffix}{safe_ext(file.filename)}'
+        abs_path = os.path.join(dir_path, filename)
+        file.save(abs_path)
+        urls.append(f'/photos/{spot_id}/{filename}')
+        abs_paths.append(abs_path)
+    return urls, abs_paths
+
+
+THUMB_MAX_SIZE = 320
+
+
+def generate_thumbnail(src_path, dst_path):
+    """Pillowでサムネイルを生成する。Pillow未導入や失敗時はFalseを返すだけで例外は投げない"""
+    if not HAS_PILLOW:
+        return False
+    try:
+        with Image.open(src_path) as img:
+            img = img.convert('RGB')
+            img.thumbnail((THUMB_MAX_SIZE, THUMB_MAX_SIZE))
+            img.save(dst_path, 'JPEG', quality=70)
+        return True
+    except Exception:
+        return False
+
+
+def save_photos_with_thumbs(spot_id, photo_files, thumb_files):
+    """
+    フルサイズ写真と、（あれば）ブラウザ生成済みサムネイルを保存する。
+    サムネイルが提供されていない写真は、Pillowが使えればサーバー側で生成してフォールバックする。
+    """
+    photo_urls, photo_abs_paths = save_photos(spot_id, photo_files)
+    thumb_urls, _ = save_photos(spot_id, thumb_files, suffix='.thumb')
+
+    # ブラウザがサムネイルを送ってこなかった分(=写真の枚数の方が多い分)を、Pillowで補う
+    for i in range(len(thumb_urls), len(photo_urls)):
+        dst_path = os.path.join(PHOTOS_DIR, spot_id, f'{i + 1}.thumb.jpg')
+        if generate_thumbnail(photo_abs_paths[i], dst_path):
+            thumb_urls.append(f'/photos/{spot_id}/{i + 1}.thumb.jpg')
+
+    return photo_urls, thumb_urls if thumb_urls else None
 
 
 def now_iso():
@@ -184,7 +227,9 @@ def create_spot():
         return jsonify({'error': 'lat, lng は数値で指定してください'}), 400
 
     spot_id = make_id()
-    photos = save_photos(spot_id, request.files.getlist('photos'))
+    photos, photo_thumbs = save_photos_with_thumbs(
+        spot_id, request.files.getlist('photos'), request.files.getlist('thumbnails')
+    )
     now = now_iso()
     region = (request.form.get('region') or '').strip()
 
@@ -202,6 +247,8 @@ def create_spot():
         'createdAt': now,
         'updatedAt': now,
     }
+    if photo_thumbs:
+        spot['photoThumbs'] = photo_thumbs
     if region:
         spot['region'] = region
 

@@ -53,7 +53,7 @@ function parseTags(raw) {
     .filter(Boolean);
 }
 
-async function saveUploadedPhotos(id, files) {
+async function saveUploadedPhotos(id, files, suffix = '') {
   if (!files || files.length === 0) return [];
   const dir = path.join(PHOTOS_DIR, id);
   await fs.mkdir(dir, { recursive: true });
@@ -61,7 +61,7 @@ async function saveUploadedPhotos(id, files) {
   let i = 1;
   for (const file of files) {
     const ext = path.extname(file.originalname) || '.jpg';
-    const filename = `${i}${ext}`;
+    const filename = `${i}${suffix}${ext}`;
     await fs.writeFile(path.join(dir, filename), file.buffer);
     paths.push(`/photos/${id}/${filename}`);
     i++;
@@ -136,13 +136,19 @@ app.get('/api/spots', async (_req, res) => {
   res.json(await readSpots());
 });
 
-app.post('/api/spots', upload.array('photos', 8), async (req, res) => {
+const uploadPhotoFields = upload.fields([
+  { name: 'photos', maxCount: 8 },
+  { name: 'thumbnails', maxCount: 8 }
+]);
+
+app.post('/api/spots', uploadPhotoFields, async (req, res) => {
   const { name, category, region, lat, lng, description, address, url, tags } = req.body;
   if (!name || !category || lat === undefined || lng === undefined) {
     return res.status(400).json({ error: 'name, category, lat, lng は必須です' });
   }
   const id = makeId();
-  const photos = await saveUploadedPhotos(id, req.files);
+  const photos = await saveUploadedPhotos(id, req.files?.photos);
+  const photoThumbs = await saveUploadedPhotos(id, req.files?.thumbnails, '.thumb');
   const now = new Date().toISOString();
   const spot = {
     id,
@@ -155,6 +161,7 @@ app.post('/api/spots', upload.array('photos', 8), async (req, res) => {
     address: address || '',
     url: url || '',
     photos,
+    photoThumbs: photoThumbs.length > 0 ? photoThumbs : undefined,
     tags: parseTags(tags),
     createdAt: now,
     updatedAt: now
@@ -165,14 +172,15 @@ app.post('/api/spots', upload.array('photos', 8), async (req, res) => {
   res.status(201).json(spot);
 });
 
-app.put('/api/spots/:id', upload.array('photos', 8), async (req, res) => {
+app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
   const spots = await readSpots();
   const idx = spots.findIndex((s) => s.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const existing = spots[idx];
   const { name, category, region, lat, lng, description, address, url, tags } = req.body;
-  const newPhotos = await saveUploadedPhotos(existing.id, req.files);
+  const newPhotos = await saveUploadedPhotos(existing.id, req.files?.photos);
+  const newThumbs = await saveUploadedPhotos(existing.id, req.files?.thumbnails, '.thumb');
 
   const updated = {
     ...existing,
@@ -186,6 +194,8 @@ app.put('/api/spots/:id', upload.array('photos', 8), async (req, res) => {
     url: url ?? existing.url,
     tags: tags !== undefined ? parseTags(tags) : existing.tags,
     photos: newPhotos.length > 0 ? [...(existing.photos ?? []), ...newPhotos] : existing.photos,
+    photoThumbs:
+      newThumbs.length > 0 ? [...(existing.photoThumbs ?? []), ...newThumbs] : existing.photoThumbs,
     updatedAt: new Date().toISOString()
   };
   spots[idx] = updated;
