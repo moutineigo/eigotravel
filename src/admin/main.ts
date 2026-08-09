@@ -191,13 +191,34 @@ function setupGeolocateControl() {
 
 setupGeolocateControl();
 
+/** 「(42.2327958, 140.2978500)」のような緯度経度の直接入力を受け付ける（括弧・スペースは有無どちらでも可） */
+const LATLNG_PATTERN = /^\(?\s*(-?\d{1,3}(?:\.\d+)?)\s*[,、]\s*(-?\d{1,3}(?:\.\d+)?)\s*\)?$/;
+
+function parseLatLng(text: string): L.LatLng | null {
+  const m = text.match(LATLNG_PATTERN);
+  if (!m) return null;
+  const lat = parseFloat(m[1]);
+  const lng = parseFloat(m[2]);
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return L.latLng(lat, lng);
+}
+
 /**
- * GoogleマップのURL（短縮リンク含む）or 場所名のテキストから位置を調べ、
- * 地図をその場所にズームイン＋ピンを配置する。
+ * 緯度経度の直接入力・GoogleマップのURL（短縮リンク含む）・場所名のテキストのいずれかから
+ * 位置を調べ、地図をその場所にズームイン＋ピンを配置する。
  */
 async function locateFromInput() {
   const query = el.locate.value.trim();
   if (!query) return;
+
+  // 緯度経度の直接入力ならサーバーに問い合わせず即座に移動できる
+  const direct = parseLatLng(query);
+  if (direct) {
+    map.flyTo(direct, 18);
+    setPin(direct);
+    setMessage('入力された緯度経度に移動しました', 'ok');
+    return;
+  }
 
   el.locateBtn.disabled = true;
   el.locateBtn.textContent = '検索中…';
