@@ -69,6 +69,51 @@ async function saveUploadedPhotos(id, files) {
   return paths;
 }
 
+/**
+ * GoogleマップのURL（短縮リンク含む）から緯度経度を取り出す。
+ * リダイレクト先のURLに含まれる !3d..!4d.. (正確なピン位置) または @lat,lng (表示中心) を探す。
+ */
+async function resolveFromUrl(url) {
+  const resp = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const finalUrl = resp.url;
+
+  let m = finalUrl.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (!m) m = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (!m) throw new Error('URLから位置情報を取得できませんでした');
+
+  const lat = parseFloat(m[1]);
+  const lng = parseFloat(m[2]);
+
+  let name;
+  const nm = finalUrl.match(/\/place\/([^/@]+)\//);
+  if (nm) name = decodeURIComponent(nm[1]).replace(/\+/g, ' ');
+
+  return { lat, lng, name };
+}
+
+/** 地名・施設名のテキスト検索（OpenStreetMapのNominatimを利用、APIキー不要） */
+async function resolveFromSearch(query) {
+  const params = new URLSearchParams({ q: query, format: 'json', limit: '1', 'accept-language': 'ja' });
+  const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    headers: { 'User-Agent': 'osusume-map-admin/1.0' }
+  });
+  const results = await resp.json();
+  if (!results.length) throw new Error('見つかりませんでした');
+  const r = results[0];
+  return { lat: parseFloat(r.lat), lng: parseFloat(r.lon), name: r.display_name };
+}
+
+app.get('/api/resolve', async (req, res) => {
+  const raw = String(req.query.q || '').trim();
+  if (!raw) return res.status(400).json({ error: 'q は必須です' });
+  try {
+    const result = /^https?:\/\//.test(raw) ? await resolveFromUrl(raw) : await resolveFromSearch(raw);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/spots', async (_req, res) => {
   res.json(await readSpots());
 });

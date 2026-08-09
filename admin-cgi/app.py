@@ -9,8 +9,11 @@
 """
 import json
 import os
+import re
 import shutil
 import time
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 
@@ -88,8 +91,60 @@ def add_headers(resp):
 
 @app.route('/spots', methods=['OPTIONS'])
 @app.route('/spots/<spot_id>', methods=['OPTIONS'])
+@app.route('/resolve', methods=['OPTIONS'])
 def options_handler(spot_id=None):
     return ('', 204)
+
+
+def resolve_from_url(url):
+    """GoogleマップのURL（短縮リンク含む）から緯度経度を取り出す。
+    リダイレクト先のURLに含まれる !3d..!4d.. (正確なピン位置) または @lat,lng (表示中心) を探す。
+    """
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        final_url = resp.geturl()
+
+    m = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', final_url)
+    if not m:
+        m = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', final_url)
+    if not m:
+        raise ValueError('URLから位置情報を取得できませんでした')
+
+    lat, lng = float(m.group(1)), float(m.group(2))
+
+    name = None
+    nm = re.search(r'/place/([^/@]+)/', final_url)
+    if nm:
+        name = urllib.parse.unquote(nm.group(1)).replace('+', ' ')
+
+    return {'lat': lat, 'lng': lng, 'name': name}
+
+
+def resolve_from_search(query):
+    """地名・施設名のテキスト検索（OpenStreetMapのNominatimを利用、APIキー不要）"""
+    params = urllib.parse.urlencode({'q': query, 'format': 'json', 'limit': 1, 'accept-language': 'ja'})
+    url = f'https://nominatim.openstreetmap.org/search?{params}'
+    req = urllib.request.Request(url, headers={'User-Agent': 'osusume-map-admin/1.0'})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        results = json.loads(resp.read().decode('utf-8'))
+
+    if not results:
+        raise ValueError('見つかりませんでした')
+
+    r = results[0]
+    return {'lat': float(r['lat']), 'lng': float(r['lon']), 'name': r.get('display_name')}
+
+
+@app.route('/resolve', methods=['GET'])
+def resolve_location():
+    raw = (request.args.get('q') or '').strip()
+    if not raw:
+        return jsonify({'error': 'q は必須です'}), 400
+    try:
+        result = resolve_from_url(raw) if raw.startswith(('http://', 'https://')) else resolve_from_search(raw)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 
 @app.route('/spots', methods=['GET'])

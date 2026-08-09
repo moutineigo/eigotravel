@@ -32,9 +32,52 @@ body {
   min-height: 0;
 }
 
-.admin-map {
+.admin-map-wrap {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+.admin-map {
+  position: absolute;
+  inset: 0;
+}
+
+/* 地図上に重ねる「Googleマップリンク/場所名で検索」ボックス */
+.locate-box {
+  position: absolute;
+  z-index: 1000;
+  top: 10px;
+  left: 10px;
+  right: 60px; /* 右側のズームボタンと重ならないように */
+  display: flex;
+  gap: 6px;
+}
+
+.locate-box input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 16px; /* iOSの自動ズームを防ぐ */
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.locate-box button {
+  flex: none;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: #1d3557;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.locate-box button:active {
+  background: #16294a;
 }
 
 .admin-sidebar {
@@ -230,7 +273,7 @@ body {
     -webkit-overflow-scrolling: touch;
   }
 
-  .admin-map {
+  .admin-map-wrap {
     flex: none;
     height: 42vh;
     height: 42dvh;

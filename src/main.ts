@@ -17,6 +17,10 @@ interface MarkerEntry {
 
 async function main() {
   const map = createBaseMap('map');
+  // ポップアップのGoogleマップアイコン(icons8)のクレジット。既存のLeaflet帰属表示に1行追加するだけにする
+  map.attributionControl.addAttribution(
+    '<a href="https://icons8.com" target="_blank" rel="noopener noreferrer">Icons by Icons8</a>'
+  );
   const markersLayer = L.layerGroup().addTo(map);
   const menu = setupMenuToggle(map);
 

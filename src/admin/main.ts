@@ -30,7 +30,9 @@ const el = {
   form: document.getElementById('spot-form') as HTMLFormElement,
   message: document.getElementById('form-message') as HTMLElement,
   list: document.getElementById('spot-list') as HTMLElement,
-  count: document.getElementById('spot-count') as HTMLElement
+  count: document.getElementById('spot-count') as HTMLElement,
+  locate: document.getElementById('f-locate') as HTMLInputElement,
+  locateBtn: document.getElementById('f-locate-btn') as HTMLButtonElement
 };
 
 let previewUrls: string[] = [];
@@ -188,6 +190,47 @@ function setupGeolocateControl() {
 }
 
 setupGeolocateControl();
+
+/**
+ * GoogleマップのURL（短縮リンク含む）or 場所名のテキストから位置を調べ、
+ * 地図をその場所にズームイン＋ピンを配置する。
+ */
+async function locateFromInput() {
+  const query = el.locate.value.trim();
+  if (!query) return;
+
+  el.locateBtn.disabled = true;
+  el.locateBtn.textContent = '検索中…';
+  try {
+    const res = await fetch(`${API_BASE}/api/resolve?q=${encodeURIComponent(query)}`);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+
+    const latlng = L.latLng(body.lat, body.lng);
+    map.flyTo(latlng, 18);
+    setPin(latlng);
+    if (body.name && !el.name.value) {
+      el.name.value = body.name;
+    }
+    setMessage('位置を見つけました。内容を確認して登録してください', 'ok');
+  } catch (err) {
+    console.error(err);
+    setMessage(`場所を特定できませんでした: ${(err as Error).message}`, 'error');
+  } finally {
+    el.locateBtn.disabled = false;
+    el.locateBtn.textContent = '移動';
+  }
+}
+
+el.locateBtn.addEventListener('click', () => {
+  locateFromInput().catch((err) => console.error(err));
+});
+el.locate.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    locateFromInput().catch((err) => console.error(err));
+  }
+});
 
 async function loadSpots(): Promise<Spot[]> {
   const res = await fetch(`${API_BASE}/api/spots`);

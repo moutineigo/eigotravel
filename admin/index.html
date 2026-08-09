@@ -11,7 +11,18 @@
         <h1>管理画面</h1>
       </header>
       <div class="admin-body">
-        <div id="admin-map" class="admin-map"></div>
+        <div class="admin-map-wrap">
+          <div id="admin-map" class="admin-map"></div>
+          <div class="locate-box">
+            <input
+              type="text"
+              id="f-locate"
+              placeholder="🔍 Googleマップのリンク or 場所名で検索"
+              autocomplete="off"
+            />
+            <button type="button" id="f-locate-btn">移動</button>
+          </div>
+        </div>
         <div class="admin-sidebar">
           <form id="spot-form">
             <input type="hidden" id="f-lat" />
