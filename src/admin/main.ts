@@ -32,7 +32,7 @@ const el = {
   message: document.getElementById('form-message') as HTMLElement,
   list: document.getElementById('spot-list') as HTMLElement,
   count: document.getElementById('spot-count') as HTMLElement,
-  shownCount: document.getElementById('spot-shown-count') as HTMLElement,
+  pagination: document.getElementById('spot-pagination') as HTMLElement,
   filterRegion: document.getElementById('f-filter-region') as HTMLSelectElement,
   editBanner: document.getElementById('f-edit-banner') as HTMLElement,
   editName: document.getElementById('f-edit-name') as HTMLElement,
@@ -41,11 +41,13 @@ const el = {
   locateBtn: document.getElementById('f-locate-btn') as HTMLButtonElement
 };
 
-const LIST_DISPLAY_LIMIT = 20;
+const PAGE_SIZE = 20;
 /** 直近取得した全スポット（一覧のフィルタ切り替え時に再取得しなくて済むようキャッシュしておく） */
 let allSpotsCache: Spot[] = [];
 /** 一覧の地域フィルタ（空文字=すべて） */
 let regionFilter = '';
+/** 一覧の現在のページ（1始まり） */
+let currentPage = 1;
 /** 編集中のスポットID。nullなら新規追加モード */
 let editingId: string | null = null;
 
@@ -180,6 +182,7 @@ function initFilterRegionSelect() {
   }
   el.filterRegion.addEventListener('change', () => {
     regionFilter = el.filterRegion.value;
+    currentPage = 1; // フィルタを変えたら1ページ目に戻す
     renderExisting(allSpotsCache);
   });
 }
@@ -327,8 +330,13 @@ function renderExisting(spots: Spot[]) {
   const sorted = [...filtered].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
-  const shown = sorted.slice(0, LIST_DISPLAY_LIMIT);
-  el.shownCount.textContent = String(shown.length);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  currentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const shown = sorted.slice(start, start + PAGE_SIZE);
+
+  renderPagination(sorted.length, totalPages);
 
   el.list.innerHTML = '';
   for (const spot of shown) {
@@ -352,6 +360,42 @@ function renderExisting(spots: Spot[]) {
     li.append(nameSpan, editBtn, delBtn);
     el.list.appendChild(li);
   }
+}
+
+/** 一覧下部のページネーション（« 前へ / 1 / 2 / 3 ... / 次へ »）を描画する */
+function renderPagination(totalCount: number, totalPages: number) {
+  el.pagination.innerHTML = '';
+  if (totalCount === 0) {
+    el.pagination.textContent = '該当するスポットがありません';
+    return;
+  }
+
+  const goTo = (page: number) => {
+    currentPage = page;
+    renderExisting(allSpotsCache);
+    el.list.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.textContent = '‹ 前へ';
+  prevBtn.disabled = currentPage <= 1;
+  prevBtn.addEventListener('click', () => goTo(currentPage - 1));
+  el.pagination.appendChild(prevBtn);
+
+  const info = document.createElement('span');
+  info.className = 'spot-pagination__info';
+  const start = (currentPage - 1) * PAGE_SIZE + 1;
+  const end = Math.min(currentPage * PAGE_SIZE, totalCount);
+  info.textContent = `${start}-${end} / ${totalCount}件（${currentPage} / ${totalPages}ページ）`;
+  el.pagination.appendChild(info);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.textContent = '次へ ›';
+  nextBtn.disabled = currentPage >= totalPages;
+  nextBtn.addEventListener('click', () => goTo(currentPage + 1));
+  el.pagination.appendChild(nextBtn);
 }
 
 /** 一覧の「編集」から呼ばれる。フォームに既存の内容を読み込み、更新モードに切り替える */
