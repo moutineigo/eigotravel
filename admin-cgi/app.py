@@ -127,7 +127,7 @@ def now_iso():
 def add_headers(resp):
     # 認証は無し（推測されにくいURLだけで保護する運用のため）。CORSはローカル検証用に緩め。
     resp.headers['Access-Control-Allow-Origin'] = '*'
-    resp.headers['Access-Control-Allow-Methods'] = 'GET,POST,DELETE,OPTIONS'
+    resp.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return resp
 
@@ -256,6 +256,69 @@ def create_spot():
     spots.append(spot)
     write_spots(spots)
     return jsonify(spot), 201
+
+
+@app.route('/spots/<spot_id>', methods=['PUT'])
+def update_spot(spot_id):
+    spots = read_spots()
+    idx = next((i for i, s in enumerate(spots) if s.get('id') == spot_id), None)
+    if idx is None:
+        return jsonify({'error': 'not found'}), 404
+
+    existing = spots[idx]
+
+    lat_raw = request.form.get('lat')
+    lng_raw = request.form.get('lng')
+    lat_f = existing.get('lat')
+    lng_f = existing.get('lng')
+    try:
+        if lat_raw is not None:
+            lat_f = float(lat_raw)
+        if lng_raw is not None:
+            lng_f = float(lng_raw)
+    except ValueError:
+        return jsonify({'error': 'lat, lng は数値で指定してください'}), 400
+
+    new_photos, new_thumbs = save_photos_with_thumbs(
+        spot_id, request.files.getlist('photos'), request.files.getlist('thumbnails')
+    )
+
+    updated = dict(existing)
+    name = request.form.get('name')
+    if name is not None:
+        updated['name'] = name
+    category = request.form.get('category')
+    if category is not None:
+        updated['category'] = category
+    updated['lat'] = lat_f
+    updated['lng'] = lng_f
+    if request.form.get('description') is not None:
+        updated['description'] = request.form.get('description')
+    if request.form.get('address') is not None:
+        updated['address'] = request.form.get('address')
+    if request.form.get('url') is not None:
+        updated['url'] = request.form.get('url')
+    if request.form.get('tags') is not None:
+        updated['tags'] = parse_tags(request.form.get('tags'))
+
+    region_raw = request.form.get('region')
+    if region_raw is not None:
+        region = region_raw.strip()
+        if region:
+            updated['region'] = region
+        else:
+            updated.pop('region', None)
+
+    if new_photos:
+        updated['photos'] = (existing.get('photos') or []) + new_photos
+    if new_thumbs:
+        updated['photoThumbs'] = (existing.get('photoThumbs') or []) + new_thumbs
+
+    updated['updatedAt'] = now_iso()
+
+    spots[idx] = updated
+    write_spots(spots)
+    return jsonify(updated)
 
 
 @app.route('/spots/<spot_id>', methods=['DELETE'])

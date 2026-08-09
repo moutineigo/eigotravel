@@ -27,6 +27,10 @@
           <form id="spot-form">
             <input type="hidden" id="f-lat" />
             <input type="hidden" id="f-lng" />
+            <p id="f-edit-banner" class="edit-banner" hidden>
+              ✏️ 編集中: <span id="f-edit-name"></span>
+              <button type="button" id="f-edit-cancel">キャンセル</button>
+            </p>
             <p id="f-latlng" class="latlng-display">📍 地図をタップして位置を選択してください</p>
 
             <label>名前 <span class="req">*</span><input type="text" id="f-name" required /></label>
@@ -54,13 +58,22 @@
             </label>
             <div id="photo-preview" class="photo-preview"></div>
 
-            <button type="submit">この内容で登録する</button>
+            <button type="submit" id="f-submit-btn">この内容で登録する</button>
             <p id="form-message" class="form-message"></p>
           </form>
 
           <hr />
 
-          <h2>登録済みスポット（<span id="spot-count">0</span>件）</h2>
+          <h2>登録済みスポット</h2>
+          <label class="spot-list-filter">
+            地域で絞り込み
+            <select id="f-filter-region">
+              <option value="">すべて</option>
+            </select>
+          </label>
+          <p class="spot-list-count">
+            <span id="spot-shown-count">0</span> / <span id="spot-count">0</span>件を表示（更新日が新しい順、最大20件）
+          </p>
           <ul id="spot-list" class="spot-list"></ul>
         </div>
       </div>

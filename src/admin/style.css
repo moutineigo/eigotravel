@@ -103,6 +103,38 @@ body {
   border-radius: 6px;
 }
 
+/* フォームが編集モードのときに表示するバナー */
+.edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+  background: #fff3cd;
+  color: #664d03;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 0 0 10px;
+}
+
+.edit-banner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: bold;
+}
+
+.edit-banner button {
+  flex: none;
+  border: none;
+  background: #664d03;
+  color: #fff;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
 #spot-form label {
   display: block;
   font-size: 0.9rem;
@@ -241,6 +273,35 @@ body {
   font-size: 0.8rem;
   cursor: pointer;
   min-height: 36px;
+  flex: none;
+}
+
+.spot-list button.edit-btn {
+  background: #457b9d;
+}
+
+.spot-list-filter {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.spot-list-filter select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  color: #1d1d1d;
+}
+
+.spot-list-count {
+  font-size: 0.75rem;
+  color: #777;
+  margin: 4px 0 8px;
 }
 
 /* 現在地に移動ボタン（Leafletコントロールとして地図左下に追加） */

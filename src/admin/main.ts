@@ -28,12 +28,26 @@ const el = {
   photos: document.getElementById('f-photos') as HTMLInputElement,
   photoPreview: document.getElementById('photo-preview') as HTMLElement,
   form: document.getElementById('spot-form') as HTMLFormElement,
+  submitBtn: document.getElementById('f-submit-btn') as HTMLButtonElement,
   message: document.getElementById('form-message') as HTMLElement,
   list: document.getElementById('spot-list') as HTMLElement,
   count: document.getElementById('spot-count') as HTMLElement,
+  shownCount: document.getElementById('spot-shown-count') as HTMLElement,
+  filterRegion: document.getElementById('f-filter-region') as HTMLSelectElement,
+  editBanner: document.getElementById('f-edit-banner') as HTMLElement,
+  editName: document.getElementById('f-edit-name') as HTMLElement,
+  editCancel: document.getElementById('f-edit-cancel') as HTMLButtonElement,
   locate: document.getElementById('f-locate') as HTMLInputElement,
   locateBtn: document.getElementById('f-locate-btn') as HTMLButtonElement
 };
+
+const LIST_DISPLAY_LIMIT = 20;
+/** 直近取得した全スポット（一覧のフィルタ切り替え時に再取得しなくて済むようキャッシュしておく） */
+let allSpotsCache: Spot[] = [];
+/** 一覧の地域フィルタ（空文字=すべて） */
+let regionFilter = '';
+/** 編集中のスポットID。nullなら新規追加モード */
+let editingId: string | null = null;
 
 let previewUrls: string[] = [];
 /** 変換後（JPEG化後）の実際にアップロードするファイル一覧（フルサイズ） */
@@ -155,6 +169,19 @@ function initRegionSelect() {
     opt.textContent = REGIONS[key].label;
     el.region.appendChild(opt);
   }
+}
+
+function initFilterRegionSelect() {
+  for (const key of REGION_KEYS) {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = REGIONS[key].label;
+    el.filterRegion.appendChild(opt);
+  }
+  el.filterRegion.addEventListener('change', () => {
+    regionFilter = el.filterRegion.value;
+    renderExisting(allSpotsCache);
+  });
 }
 
 /** ピンの位置（新規スポットの座標）を更新する。地図クリック・ドラッグ・現在地取得のどこからでも呼ぶ */
@@ -284,27 +311,91 @@ async function loadSpots(): Promise<Spot[]> {
 }
 
 function renderExisting(spots: Spot[]) {
-  existingLayer.clearLayers();
-  el.list.innerHTML = '';
-  el.count.textContent = String(spots.length);
+  allSpotsCache = spots;
 
+  // 地図上のピンは常に全件表示（フィルタは一覧表示だけに効かせる）
+  existingLayer.clearLayers();
   for (const spot of spots) {
     const marker = L.marker([spot.lat, spot.lng], { icon: createSpotIcon(spot.category) });
     marker.bindPopup(`<b>${escapeHtml(spot.name)}</b>`);
     existingLayer.addLayer(marker);
+  }
 
+  el.count.textContent = String(spots.length);
+
+  const filtered = regionFilter ? spots.filter((s) => s.region === regionFilter) : spots;
+  const sorted = [...filtered].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+  const shown = sorted.slice(0, LIST_DISPLAY_LIMIT);
+  el.shownCount.textContent = String(shown.length);
+
+  el.list.innerHTML = '';
+  for (const spot of shown) {
     const li = document.createElement('li');
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
     const regionLabel = spot.region ? REGIONS[spot.region as Region]?.label : '';
     nameSpan.textContent = `[${CATEGORIES[spot.category as Category]?.label ?? spot.category}${regionLabel ? '/' + regionLabel : ''}] ${spot.name}`;
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'edit-btn';
+    editBtn.textContent = '編集';
+    editBtn.addEventListener('click', () => startEdit(spot));
+
     const delBtn = document.createElement('button');
+    delBtn.type = 'button';
     delBtn.textContent = '削除';
     delBtn.addEventListener('click', () => deleteSpot(spot.id));
-    li.append(nameSpan, delBtn);
+
+    li.append(nameSpan, editBtn, delBtn);
     el.list.appendChild(li);
   }
 }
+
+/** 一覧の「編集」から呼ばれる。フォームに既存の内容を読み込み、更新モードに切り替える */
+function startEdit(spot: Spot) {
+  editingId = spot.id;
+
+  el.name.value = spot.name;
+  el.category.value = spot.category;
+  el.region.value = spot.region ?? '';
+  el.description.value = spot.description ?? '';
+  el.address.value = spot.address ?? '';
+  el.url.value = spot.url ?? '';
+  el.tags.value = (spot.tags ?? []).join(', ');
+  clearPhotoPreview();
+
+  const latlng = L.latLng(spot.lat, spot.lng);
+  setPin(latlng);
+  map.flyTo(latlng, Math.max(map.getZoom(), 16));
+
+  el.editBanner.hidden = false;
+  el.editName.textContent = spot.name;
+  el.submitBtn.textContent = 'この内容で更新する';
+  setMessage('', 'ok');
+
+  el.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** 編集モードを終了して、新規追加モードに戻す */
+function cancelEdit() {
+  editingId = null;
+  el.form.reset();
+  el.lat.value = '';
+  el.lng.value = '';
+  el.latlngDisplay.textContent = '📍 地図をタップして位置を選択してください';
+  clearPhotoPreview();
+  if (pinMarker) {
+    map.removeLayer(pinMarker);
+    pinMarker = null;
+  }
+  el.editBanner.hidden = true;
+  el.submitBtn.textContent = 'この内容で登録する';
+}
+
+el.editCancel.addEventListener('click', cancelEdit);
 
 async function deleteSpot(id: string) {
   if (!confirm('このスポットを削除しますか？（写真も削除されます）')) return;
@@ -352,27 +443,21 @@ el.form.addEventListener('submit', async (e) => {
     fd.append('thumbnails', file);
   }
 
+  const isEditing = editingId !== null;
   setMessage('送信中...', 'ok');
   try {
-    const res = await fetch(`${API_BASE}/api/spots`, { method: 'POST', body: fd });
+    const url = isEditing ? `${API_BASE}/api/spots/${editingId}` : `${API_BASE}/api/spots`;
+    const res = await fetch(url, { method: isEditing ? 'PUT' : 'POST', body: fd });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error ?? `HTTP ${res.status}`);
     }
-    setMessage('追加しました！', 'ok');
-    el.form.reset();
-    el.lat.value = '';
-    el.lng.value = '';
-    el.latlngDisplay.textContent = '📍 地図をタップして位置を選択してください';
-    clearPhotoPreview();
-    if (pinMarker) {
-      map.removeLayer(pinMarker);
-      pinMarker = null;
-    }
+    cancelEdit();
+    setMessage(isEditing ? '更新しました！' : '追加しました！', 'ok');
     await refresh();
   } catch (err) {
     console.error(err);
-    setMessage(`追加に失敗しました: ${(err as Error).message}`, 'error');
+    setMessage(`${isEditing ? '更新' : '追加'}に失敗しました: ${(err as Error).message}`, 'error');
   }
 });
 
@@ -387,4 +472,5 @@ function escapeHtml(s: string): string {
 
 initCategorySelect();
 initRegionSelect();
+initFilterRegionSelect();
 refresh();
