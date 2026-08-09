@@ -105,8 +105,14 @@ function renderPopup(spot: Spot): HTMLElement {
   const el = document.createElement('div');
   el.className = 'spot-popup';
 
-  const photo = spot.photos?.[0]
-    ? `<img class="photo" src="${escapeAttr(spot.photos[0])}" alt="">`
+  const photos = spot.photos ?? [];
+  const photoGrid = photos.length
+    ? `<div class="photo-grid">${photos
+        .map(
+          (p, i) =>
+            `<button type="button" class="photo-grid__item" data-index="${i}"><img src="${escapeAttr(p)}" alt="" loading="lazy" /></button>`
+        )
+        .join('')}</div>`
     : '';
 
   const regionLabel = spot.region ? REGIONS[spot.region]?.label : '';
@@ -129,14 +135,73 @@ function renderPopup(spot: Spot): HTMLElement {
       <a class="gmaps-link" href="${escapeAttr(googleMapsUrl)}" target="_blank" rel="noopener noreferrer" title="Googleマップで見る" aria-label="Googleマップで見る"><img src="/assets/icons/google-maps.png" alt="" width="20" height="20" /></a>
     </div>
     <h3>${escapeHtml(spot.name)}</h3>
-    ${photo}
+    ${photoGrid}
     ${spot.description ? `<p class="desc">${linkifyText(spot.description)}</p>` : ''}
     ${spot.address ? `<p class="address">${escapeHtml(spot.address)}</p>` : ''}
     ${tags}
     ${link}
   `;
+
+  el.querySelectorAll<HTMLButtonElement>('.photo-grid__item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      openLightbox(photos, Number(btn.dataset.index));
+    });
+  });
+
   return el;
 }
+
+/** 写真クリックで拡大表示するライトボックス。DOM上に1つだけ作って使い回す */
+let lightboxEl: HTMLElement | null = null;
+let lightboxPhotos: string[] = [];
+let lightboxIndex = 0;
+
+function getLightbox(): HTMLElement {
+  if (lightboxEl) return lightboxEl;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'lightbox';
+  overlay.innerHTML = `
+    <button type="button" class="lightbox__close" aria-label="閉じる">✕</button>
+    <button type="button" class="lightbox__prev" aria-label="前の写真">‹</button>
+    <img class="lightbox__img" alt="" />
+    <button type="button" class="lightbox__next" aria-label="次の写真">›</button>
+  `;
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeLightbox();
+  });
+  overlay.querySelector('.lightbox__close')?.addEventListener('click', closeLightbox);
+  overlay.querySelector('.lightbox__prev')?.addEventListener('click', () => showLightboxPhoto(lightboxIndex - 1));
+  overlay.querySelector('.lightbox__next')?.addEventListener('click', () => showLightboxPhoto(lightboxIndex + 1));
+  document.body.appendChild(overlay);
+  lightboxEl = overlay;
+  return overlay;
+}
+
+function showLightboxPhoto(index: number) {
+  lightboxIndex = (index + lightboxPhotos.length) % lightboxPhotos.length;
+  const overlay = getLightbox();
+  const img = overlay.querySelector<HTMLImageElement>('.lightbox__img');
+  if (img) img.src = lightboxPhotos[lightboxIndex];
+  overlay.classList.toggle('lightbox--multi', lightboxPhotos.length > 1);
+}
+
+function openLightbox(photos: string[], index: number) {
+  lightboxPhotos = photos;
+  showLightboxPhoto(index);
+  getLightbox().classList.add('lightbox--open');
+}
+
+function closeLightbox() {
+  lightboxEl?.classList.remove('lightbox--open');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!lightboxEl?.classList.contains('lightbox--open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') showLightboxPhoto(lightboxIndex - 1);
+  if (e.key === 'ArrowRight') showLightboxPhoto(lightboxIndex + 1);
+});
 
 /** B: 右上に常時表示するカテゴリの表示/非表示パネル。開閉できるようにする */
 function renderCategoryPanel(
