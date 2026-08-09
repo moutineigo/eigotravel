@@ -117,8 +117,13 @@ function renderPopup(spot: Spot): HTMLElement {
     ? `<a class="link" href="${escapeAttr(spot.url)}" target="_blank" rel="noopener noreferrer">公式サイト・詳細を見る →</a>`
     : '';
 
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lng}`;
+
   el.innerHTML = `
-    <span class="category-badge" style="background:${meta.color}">${meta.label}${regionLabel ? ` / ${escapeHtml(regionLabel)}` : ''}</span>
+    <div class="popup-header">
+      <span class="category-badge" style="background:${meta.color}">${meta.label}${regionLabel ? ` / ${escapeHtml(regionLabel)}` : ''}</span>
+      <a class="gmaps-link" href="${escapeAttr(googleMapsUrl)}" target="_blank" rel="noopener noreferrer" title="Googleマップで見る" aria-label="Googleマップで見る">🗺️</a>
+    </div>
     <h3>${escapeHtml(spot.name)}</h3>
     ${photo}
     ${spot.description ? `<p class="desc">${linkifyText(spot.description)}</p>` : ''}

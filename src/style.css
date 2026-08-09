@@ -292,13 +292,32 @@ body {
   font-size: 1rem;
 }
 
+.spot-popup .popup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .spot-popup .category-badge {
   display: inline-block;
   font-size: 0.7rem;
   color: #fff;
   padding: 1px 8px;
   border-radius: 999px;
-  margin-bottom: 6px;
+}
+
+.spot-popup .gmaps-link {
+  flex: none;
+  font-size: 1rem;
+  line-height: 1;
+  text-decoration: none;
+  opacity: 0.8;
+}
+
+.spot-popup .gmaps-link:hover {
+  opacity: 1;
 }
 
 .spot-popup .photo {
