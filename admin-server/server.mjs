@@ -72,6 +72,11 @@ async function saveUploadedPhotos(id, files) {
 /**
  * GoogleマップのURL（短縮リンク含む）から緯度経度を取り出す。
  * リダイレクト先のURLに含まれる !3d..!4d.. (正確なピン位置) または @lat,lng (表示中心) を探す。
+ *
+ * iOSアプリの「共有」から作られるリンクは、リダイレクト先が
+ * `?q=住所+施設名&ftid=...` という座標を含まない形式になることがある
+ * （JS実行しないと座標が取れないページ）。その場合は q= の住所テキストを
+ * OpenStreetMap検索にかけるフォールバックを試す。
  */
 async function resolveFromUrl(url) {
   const resp = await fetch(url, { redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -79,16 +84,29 @@ async function resolveFromUrl(url) {
 
   let m = finalUrl.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
   if (!m) m = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (!m) throw new Error('URLから位置情報を取得できませんでした');
 
-  const lat = parseFloat(m[1]);
-  const lng = parseFloat(m[2]);
+  if (m) {
+    const lat = parseFloat(m[1]);
+    const lng = parseFloat(m[2]);
+    let name;
+    const nm = finalUrl.match(/\/place\/([^/@]+)\//);
+    if (nm) name = decodeURIComponent(nm[1]).replace(/\+/g, ' ');
+    return { lat, lng, name };
+  }
 
-  let name;
-  const nm = finalUrl.match(/\/place\/([^/@]+)\//);
-  if (nm) name = decodeURIComponent(nm[1]).replace(/\+/g, ' ');
+  // フォールバック: q= に入っている住所/施設名でテキスト検索してみる
+  const qParam = new URL(finalUrl).searchParams.get('q');
+  if (qParam) {
+    try {
+      return await resolveFromSearch(qParam);
+    } catch {
+      // このあと共通のエラーメッセージを投げる
+    }
+  }
 
-  return { lat, lng, name };
+  throw new Error(
+    'このリンクからは位置を自動取得できませんでした（GoogleマップのiOS共有リンクなど、座標を含まない形式の可能性があります）。地図を直接タップして位置を指定してください。'
+  );
 }
 
 /** 地名・施設名のテキスト検索（OpenStreetMapのNominatimを利用、APIキー不要） */

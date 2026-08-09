@@ -99,6 +99,11 @@ def options_handler(spot_id=None):
 def resolve_from_url(url):
     """GoogleマップのURL（短縮リンク含む）から緯度経度を取り出す。
     リダイレクト先のURLに含まれる !3d..!4d.. (正確なピン位置) または @lat,lng (表示中心) を探す。
+
+    iOSアプリの「共有」から作られるリンクは、リダイレクト先が
+    `?q=住所+施設名&ftid=...` という座標を含まない形式になることがある
+    （JS実行しないと座標が取れないページ）。その場合は q= の住所テキストを
+    OpenStreetMap検索にかけるフォールバックを試す。
     """
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req, timeout=10) as resp:
@@ -107,17 +112,28 @@ def resolve_from_url(url):
     m = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', final_url)
     if not m:
         m = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', final_url)
-    if not m:
-        raise ValueError('URLから位置情報を取得できませんでした')
 
-    lat, lng = float(m.group(1)), float(m.group(2))
+    if m:
+        lat, lng = float(m.group(1)), float(m.group(2))
+        name = None
+        nm = re.search(r'/place/([^/@]+)/', final_url)
+        if nm:
+            name = urllib.parse.unquote(nm.group(1)).replace('+', ' ')
+        return {'lat': lat, 'lng': lng, 'name': name}
 
-    name = None
-    nm = re.search(r'/place/([^/@]+)/', final_url)
-    if nm:
-        name = urllib.parse.unquote(nm.group(1)).replace('+', ' ')
+    # フォールバック: q= に入っている住所/施設名でテキスト検索してみる
+    q_param = urllib.parse.parse_qs(urllib.parse.urlparse(final_url).query).get('q', [None])[0]
+    if q_param:
+        try:
+            return resolve_from_search(q_param)
+        except Exception:
+            pass  # このあと共通のエラーメッセージを投げる
 
-    return {'lat': lat, 'lng': lng, 'name': name}
+    raise ValueError(
+        'このリンクからは位置を自動取得できませんでした'
+        '（GoogleマップのiOS共有リンクなど、座標を含まない形式の可能性があります）。'
+        '地図を直接タップして位置を指定してください。'
+    )
 
 
 def resolve_from_search(query):
