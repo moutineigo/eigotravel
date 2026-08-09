@@ -310,14 +310,19 @@ body {
 
 .spot-popup .gmaps-link {
   flex: none;
-  font-size: 1rem;
-  line-height: 1;
-  text-decoration: none;
-  opacity: 0.8;
+  display: block;
+  line-height: 0;
+  opacity: 0.85;
 }
 
 .spot-popup .gmaps-link:hover {
   opacity: 1;
+}
+
+.spot-popup .gmaps-link img {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .spot-popup .photo {

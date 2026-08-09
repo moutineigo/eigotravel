@@ -122,7 +122,7 @@ function renderPopup(spot: Spot): HTMLElement {
   el.innerHTML = `
     <div class="popup-header">
       <span class="category-badge" style="background:${meta.color}">${meta.label}${regionLabel ? ` / ${escapeHtml(regionLabel)}` : ''}</span>
-      <a class="gmaps-link" href="${escapeAttr(googleMapsUrl)}" target="_blank" rel="noopener noreferrer" title="Googleマップで見る" aria-label="Googleマップで見る">🗺️</a>
+      <a class="gmaps-link" href="${escapeAttr(googleMapsUrl)}" target="_blank" rel="noopener noreferrer" title="Googleマップで見る" aria-label="Googleマップで見る"><img src="/assets/icons/google-maps.png" alt="" width="20" height="20" /></a>
     </div>
     <h3>${escapeHtml(spot.name)}</h3>
     ${photo}
