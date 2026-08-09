@@ -200,6 +200,28 @@ body {
   min-height: 36px;
 }
 
+/* 現在地に移動ボタン（Leafletコントロールとして地図左下に追加） */
+.geolocate-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.geolocate-btn:active {
+  background: #eee;
+}
+
+.geolocate-btn--loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* --- スマホ幅: 地図とフォームを横並びではなく縦積みにする --- */
 @media (max-width: 768px) {
   .admin-body {

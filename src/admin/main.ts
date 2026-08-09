@@ -131,24 +131,63 @@ function initRegionSelect() {
   }
 }
 
-map.on('click', (e: L.LeafletMouseEvent) => {
-  const { lat, lng } = e.latlng;
-  el.lat.value = String(lat);
-  el.lng.value = String(lng);
-  el.latlngDisplay.textContent = `選択中の位置: ${lat.toFixed(5)}, ${lng.toFixed(5)}（ドラッグでも移動可）`;
+/** ピンの位置（新規スポットの座標）を更新する。地図クリック・ドラッグ・現在地取得のどこからでも呼ぶ */
+function setPin(latlng: L.LatLng) {
+  el.lat.value = String(latlng.lat);
+  el.lng.value = String(latlng.lng);
+  el.latlngDisplay.textContent = `選択中の位置: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}（ドラッグでも移動可）`;
 
   if (pinMarker) {
-    pinMarker.setLatLng(e.latlng);
+    pinMarker.setLatLng(latlng);
   } else {
-    pinMarker = L.marker(e.latlng, { draggable: true, icon: createNewSpotIcon() }).addTo(map);
+    pinMarker = L.marker(latlng, { draggable: true, icon: createNewSpotIcon() }).addTo(map);
     pinMarker.on('drag', (ev) => {
-      const pos = (ev.target as L.Marker).getLatLng();
-      el.lat.value = String(pos.lat);
-      el.lng.value = String(pos.lng);
-      el.latlngDisplay.textContent = `選択中の位置: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}（ドラッグでも移動可）`;
+      setPin((ev.target as L.Marker).getLatLng());
     });
   }
-});
+}
+
+map.on('click', (e: L.LeafletMouseEvent) => setPin(e.latlng));
+
+/** 右下に「現在地に移動」ボタンを追加。GPSで現在地を取得し、地図をズームイン＋ピンを配置する */
+function setupGeolocateControl() {
+  const control = new L.Control({ position: 'bottomleft' });
+  control.onAdd = () => {
+    const btn = L.DomUtil.create('button', 'geolocate-btn');
+    btn.type = 'button';
+    btn.title = '現在地に移動';
+    btn.setAttribute('aria-label', '現在地に移動');
+    btn.textContent = '🎯';
+    L.DomEvent.disableClickPropagation(btn);
+
+    btn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        alert('この端末・ブラウザでは現在地を取得できません');
+        return;
+      }
+      btn.classList.add('geolocate-btn--loading');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          btn.classList.remove('geolocate-btn--loading');
+          const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+          map.flyTo(latlng, 18);
+          setPin(latlng);
+        },
+        (err) => {
+          btn.classList.remove('geolocate-btn--loading');
+          console.error(err);
+          alert('現在地を取得できませんでした。位置情報の利用を許可しているか確認してください。');
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    });
+
+    return btn;
+  };
+  control.addTo(map);
+}
+
+setupGeolocateControl();
 
 async function loadSpots(): Promise<Spot[]> {
   const res = await fetch(`${API_BASE}/api/spots`);
