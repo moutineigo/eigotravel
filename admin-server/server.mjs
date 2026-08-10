@@ -53,12 +53,16 @@ function parseTags(raw) {
     .filter(Boolean);
 }
 
-async function saveUploadedPhotos(id, files, suffix = '') {
+/**
+ * startIndex: ファイル名の連番の開始値（デフォルト1）。編集で写真を追加するときは、
+ * 既存の写真の続きの番号から採番しないと同名ファイルを上書きしてしまう（実際に事故った）。
+ */
+async function saveUploadedPhotos(id, files, suffix = '', startIndex = 1) {
   if (!files || files.length === 0) return [];
   const dir = path.join(PHOTOS_DIR, id);
   await fs.mkdir(dir, { recursive: true });
   const paths = [];
-  let i = 1;
+  let i = startIndex;
   for (const file of files) {
     const ext = path.extname(file.originalname) || '.jpg';
     const filename = `${i}${suffix}${ext}`;
@@ -179,8 +183,10 @@ app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
 
   const existing = spots[idx];
   const { name, category, region, lat, lng, description, address, url, tags } = req.body;
-  const newPhotos = await saveUploadedPhotos(existing.id, req.files?.photos);
-  const newThumbs = await saveUploadedPhotos(existing.id, req.files?.thumbnails, '.thumb');
+  // 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）
+  const startIndex = (existing.photos?.length ?? 0) + 1;
+  const newPhotos = await saveUploadedPhotos(existing.id, req.files?.photos, '', startIndex);
+  const newThumbs = await saveUploadedPhotos(existing.id, req.files?.thumbnails, '.thumb', startIndex);
 
   const updated = {
     ...existing,

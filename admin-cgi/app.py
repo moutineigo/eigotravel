@@ -68,15 +68,20 @@ def safe_ext(filename):
     return ext if ext in ALLOWED_EXTENSIONS else '.jpg'
 
 
-def save_photos(spot_id, files, suffix=''):
-    """アップロードされたファイルを保存する。戻り値は (公開URLのリスト, 保存先絶対パスのリスト)"""
+def save_photos(spot_id, files, suffix='', start_index=1):
+    """
+    アップロードされたファイルを保存する。戻り値は (公開URLのリスト, 保存先絶対パスのリスト)。
+    start_index: ファイル名の連番の開始値。編集で写真を追加するときは、
+    既存の写真の続きの番号から採番しないと同名ファイルを上書きしてしまう（実際に事故った）。
+    """
     urls, abs_paths = [], []
     valid_files = [f for f in files if f and f.filename]
     if not valid_files:
         return urls, abs_paths
     dir_path = os.path.join(PHOTOS_DIR, spot_id)
     os.makedirs(dir_path, exist_ok=True)
-    for i, file in enumerate(valid_files, start=1):
+    for offset, file in enumerate(valid_files):
+        i = start_index + offset
         filename = f'{i}{suffix}{safe_ext(file.filename)}'
         abs_path = os.path.join(dir_path, filename)
         file.save(abs_path)
@@ -102,19 +107,22 @@ def generate_thumbnail(src_path, dst_path):
         return False
 
 
-def save_photos_with_thumbs(spot_id, photo_files, thumb_files):
+def save_photos_with_thumbs(spot_id, photo_files, thumb_files, start_index=1):
     """
     フルサイズ写真と、（あれば）ブラウザ生成済みサムネイルを保存する。
     サムネイルが提供されていない写真は、Pillowが使えればサーバー側で生成してフォールバックする。
+    start_index: 新規作成時は1。編集で追加するときは呼び出し側が
+    「既存の写真の枚数+1」を渡し、既存ファイルを上書きしないようにする。
     """
-    photo_urls, photo_abs_paths = save_photos(spot_id, photo_files)
-    thumb_urls, _ = save_photos(spot_id, thumb_files, suffix='.thumb')
+    photo_urls, photo_abs_paths = save_photos(spot_id, photo_files, start_index=start_index)
+    thumb_urls, _ = save_photos(spot_id, thumb_files, suffix='.thumb', start_index=start_index)
 
     # ブラウザがサムネイルを送ってこなかった分(=写真の枚数の方が多い分)を、Pillowで補う
-    for i in range(len(thumb_urls), len(photo_urls)):
-        dst_path = os.path.join(PHOTOS_DIR, spot_id, f'{i + 1}.thumb.jpg')
-        if generate_thumbnail(photo_abs_paths[i], dst_path):
-            thumb_urls.append(f'/photos/{spot_id}/{i + 1}.thumb.jpg')
+    for offset in range(len(thumb_urls), len(photo_urls)):
+        i = start_index + offset
+        dst_path = os.path.join(PHOTOS_DIR, spot_id, f'{i}.thumb.jpg')
+        if generate_thumbnail(photo_abs_paths[offset], dst_path):
+            thumb_urls.append(f'/photos/{spot_id}/{i}.thumb.jpg')
 
     return photo_urls, thumb_urls if thumb_urls else None
 
@@ -279,8 +287,13 @@ def update_spot(spot_id):
     except ValueError:
         return jsonify({'error': 'lat, lng は数値で指定してください'}), 400
 
+    # 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）
+    existing_photo_count = len(existing.get('photos') or [])
     new_photos, new_thumbs = save_photos_with_thumbs(
-        spot_id, request.files.getlist('photos'), request.files.getlist('thumbnails')
+        spot_id,
+        request.files.getlist('photos'),
+        request.files.getlist('thumbnails'),
+        start_index=existing_photo_count + 1
     )
 
     updated = dict(existing)
