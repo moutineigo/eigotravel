@@ -52,8 +52,13 @@
             <label>URL<input type="url" id="f-url" placeholder="https://..." /></label>
             <label>タグ（カンマ区切り）<input type="text" id="f-tags" placeholder="例: 絶景, 穴場" /></label>
 
+            <div id="existing-photos-section" hidden>
+              <label>登録済みの写真（✕で削除予約、保存で確定）</label>
+              <div id="existing-photos" class="photo-preview"></div>
+            </div>
+
             <label>
-              写真（複数選択できます）
+              写真を追加（複数選択できます）
               <input type="file" id="f-photos" accept="image/*" multiple />
             </label>
             <div id="photo-preview" class="photo-preview"></div>

@@ -242,6 +242,34 @@ body {
   color: #555;
 }
 
+.photo-preview__item--removed img {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.photo-preview__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.photo-preview__item--removed .photo-preview__remove {
+  background: rgba(46, 125, 50, 0.85);
+}
+
 .spot-list {
   list-style: none;
   margin: 0;

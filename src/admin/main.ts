@@ -27,6 +27,8 @@ const el = {
   tags: document.getElementById('f-tags') as HTMLInputElement,
   photos: document.getElementById('f-photos') as HTMLInputElement,
   photoPreview: document.getElementById('photo-preview') as HTMLElement,
+  existingPhotosSection: document.getElementById('existing-photos-section') as HTMLElement,
+  existingPhotos: document.getElementById('existing-photos') as HTMLElement,
   form: document.getElementById('spot-form') as HTMLFormElement,
   submitBtn: document.getElementById('f-submit-btn') as HTMLButtonElement,
   message: document.getElementById('form-message') as HTMLElement,
@@ -50,6 +52,8 @@ let regionFilter = '';
 let currentPage = 1;
 /** 編集中のスポットID。nullなら新規追加モード */
 let editingId: string | null = null;
+/** 編集中に「削除予約」した既存写真のURL（保存時にまとめてサーバーへ送る） */
+let removedPhotoUrls = new Set<string>();
 
 let previewUrls: string[] = [];
 /** 変換後（JPEG化後）の実際にアップロードするファイル一覧（フルサイズ） */
@@ -398,6 +402,56 @@ function renderPagination(totalCount: number, totalPages: number) {
   el.pagination.appendChild(nextBtn);
 }
 
+/** 編集中の既存写真ギャラリーを表示する。✕で削除予約、もう一度押すと予約解除できる */
+function renderExistingPhotos(spot: Spot) {
+  removedPhotoUrls = new Set();
+  el.existingPhotos.innerHTML = '';
+
+  const photos = spot.photos ?? [];
+  if (photos.length === 0) {
+    el.existingPhotosSection.hidden = true;
+    return;
+  }
+  el.existingPhotosSection.hidden = false;
+
+  const thumbs = spot.photoThumbs ?? [];
+  for (let i = 0; i < photos.length; i++) {
+    const url = photos[i];
+    const thumbUrl = thumbs[i] ?? url;
+
+    const item = document.createElement('div');
+    item.className = 'photo-preview__item photo-preview__item--existing';
+
+    const img = document.createElement('img');
+    // 本番/ローカルどちらでも正しく表示できるよう、相対パス基準を合わせる
+    img.src = import.meta.env.DEV ? `${API_BASE}${thumbUrl}` : thumbUrl;
+    img.alt = '';
+    item.appendChild(img);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'photo-preview__remove';
+    toggleBtn.textContent = '✕';
+    toggleBtn.title = 'この写真を削除予約する';
+    toggleBtn.addEventListener('click', () => {
+      if (removedPhotoUrls.has(url)) {
+        removedPhotoUrls.delete(url);
+        item.classList.remove('photo-preview__item--removed');
+        toggleBtn.textContent = '✕';
+        toggleBtn.title = 'この写真を削除予約する';
+      } else {
+        removedPhotoUrls.add(url);
+        item.classList.add('photo-preview__item--removed');
+        toggleBtn.textContent = '↺';
+        toggleBtn.title = '削除予約を取り消す';
+      }
+    });
+    item.appendChild(toggleBtn);
+
+    el.existingPhotos.appendChild(item);
+  }
+}
+
 /** 一覧の「編集」から呼ばれる。フォームに既存の内容を読み込み、更新モードに切り替える */
 function startEdit(spot: Spot) {
   editingId = spot.id;
@@ -410,6 +464,7 @@ function startEdit(spot: Spot) {
   el.url.value = spot.url ?? '';
   el.tags.value = (spot.tags ?? []).join(', ');
   clearPhotoPreview();
+  renderExistingPhotos(spot);
 
   const latlng = L.latLng(spot.lat, spot.lng);
   setPin(latlng);
@@ -431,6 +486,9 @@ function cancelEdit() {
   el.lng.value = '';
   el.latlngDisplay.textContent = '📍 地図をタップして位置を選択してください';
   clearPhotoPreview();
+  removedPhotoUrls = new Set();
+  el.existingPhotos.innerHTML = '';
+  el.existingPhotosSection.hidden = true;
   if (pinMarker) {
     map.removeLayer(pinMarker);
     pinMarker = null;
@@ -485,6 +543,9 @@ el.form.addEventListener('submit', async (e) => {
   }
   for (const file of preparedThumbs) {
     fd.append('thumbnails', file);
+  }
+  if (removedPhotoUrls.size > 0) {
+    fd.set('removePhotos', JSON.stringify([...removedPhotoUrls]));
   }
 
   const isEditing = editingId !== null;

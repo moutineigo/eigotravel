@@ -182,11 +182,54 @@ app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const existing = spots[idx];
-  const { name, category, region, lat, lng, description, address, url, tags } = req.body;
-  // 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）
+  const { name, category, region, lat, lng, description, address, url, tags, removePhotos } = req.body;
+  // 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）。
+  // 削除予約があっても、新規アップロードの採番は「削除前の元の枚数」基準のままにする
+  // （削除処理と採番を同じ基準にすると、削除した番号を新規ファイルが再利用してしまい、
+  //  ブラウザキャッシュ等と衝突するリスクがあるため）。
   const startIndex = (existing.photos?.length ?? 0) + 1;
+
+  let currentPhotos = existing.photos ?? [];
+  let currentThumbs = existing.photoThumbs ?? [];
+  if (removePhotos) {
+    let removeUrls;
+    try {
+      removeUrls = JSON.parse(removePhotos);
+    } catch {
+      removeUrls = [];
+    }
+    if (Array.isArray(removeUrls) && removeUrls.length > 0) {
+      const removeSet = new Set(removeUrls);
+      const keepPhotos = [];
+      const keepThumbs = [];
+      for (let i = 0; i < currentPhotos.length; i++) {
+        const url = currentPhotos[i];
+        if (removeSet.has(url)) {
+          // 該当する実ファイルを削除（本体＋サムネイル）
+          const relPhoto = url.replace(/^\/photos\//, '');
+          await fs.rm(path.join(PHOTOS_DIR, relPhoto), { force: true });
+          const thumbUrl = currentThumbs[i];
+          if (thumbUrl) {
+            const relThumb = thumbUrl.replace(/^\/photos\//, '');
+            await fs.rm(path.join(PHOTOS_DIR, relThumb), { force: true });
+          }
+        } else {
+          keepPhotos.push(url);
+          keepThumbs.push(currentThumbs[i]);
+        }
+      }
+      currentPhotos = keepPhotos;
+      // 元のphotoThumbsが未設定（フルサイズのみ）だった場合はそのまま維持し、
+      // それ以外はphotosと同じ並び・件数を保つ（インデックス対応が崩れないように）
+      currentThumbs = (existing.photoThumbs ?? []).length === 0 ? [] : keepThumbs;
+    }
+  }
+
   const newPhotos = await saveUploadedPhotos(existing.id, req.files?.photos, '', startIndex);
   const newThumbs = await saveUploadedPhotos(existing.id, req.files?.thumbnails, '.thumb', startIndex);
+
+  const finalPhotos = [...currentPhotos, ...newPhotos];
+  const finalThumbs = [...currentThumbs, ...newThumbs];
 
   const updated = {
     ...existing,
@@ -199,9 +242,8 @@ app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
     address: address ?? existing.address,
     url: url ?? existing.url,
     tags: tags !== undefined ? parseTags(tags) : existing.tags,
-    photos: newPhotos.length > 0 ? [...(existing.photos ?? []), ...newPhotos] : existing.photos,
-    photoThumbs:
-      newThumbs.length > 0 ? [...(existing.photoThumbs ?? []), ...newThumbs] : existing.photoThumbs,
+    photos: finalPhotos,
+    photoThumbs: finalThumbs.length > 0 ? finalThumbs : undefined,
     updatedAt: new Date().toISOString()
   };
   spots[idx] = updated;

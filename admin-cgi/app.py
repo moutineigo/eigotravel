@@ -90,6 +90,21 @@ def save_photos(spot_id, files, suffix='', start_index=1):
     return urls, abs_paths
 
 
+def _delete_photo_file(url):
+    """`/photos/<id>/<file>` 形式のURLから実ファイルを削除する（存在しなくてもエラーにしない）"""
+    if not url or not url.startswith('/photos/'):
+        return
+    rel = url[len('/photos/'):]
+    abs_path = os.path.normpath(os.path.join(PHOTOS_DIR, rel))
+    # PHOTOS_DIR配下から外れるパス（../等）は無視する
+    if not abs_path.startswith(os.path.normpath(PHOTOS_DIR) + os.sep):
+        return
+    try:
+        os.remove(abs_path)
+    except OSError:
+        pass
+
+
 THUMB_MAX_SIZE = 320
 
 
@@ -287,7 +302,9 @@ def update_spot(spot_id):
     except ValueError:
         return jsonify({'error': 'lat, lng は数値で指定してください'}), 400
 
-    # 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）
+    # 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）。
+    # 削除予約があっても、採番は「削除前の元の枚数」基準のままにする
+    # （削除した番号を新規ファイルが再利用すると、キャッシュ等と衝突するリスクがあるため）。
     existing_photo_count = len(existing.get('photos') or [])
     new_photos, new_thumbs = save_photos_with_thumbs(
         spot_id,
@@ -295,6 +312,30 @@ def update_spot(spot_id):
         request.files.getlist('thumbnails'),
         start_index=existing_photo_count + 1
     )
+
+    current_photos = list(existing.get('photos') or [])
+    current_thumbs = list(existing.get('photoThumbs') or [])
+    remove_raw = request.form.get('removePhotos')
+    if remove_raw:
+        try:
+            remove_urls = set(json.loads(remove_raw))
+        except (ValueError, TypeError):
+            remove_urls = set()
+        if remove_urls:
+            keep_photos = []
+            keep_thumbs = []
+            for i, url in enumerate(current_photos):
+                thumb_url = current_thumbs[i] if i < len(current_thumbs) else None
+                if url in remove_urls:
+                    _delete_photo_file(url)
+                    if thumb_url:
+                        _delete_photo_file(thumb_url)
+                else:
+                    keep_photos.append(url)
+                    if current_thumbs:
+                        keep_thumbs.append(thumb_url)
+            current_photos = keep_photos
+            current_thumbs = keep_thumbs
 
     updated = dict(existing)
     name = request.form.get('name')
@@ -322,10 +363,13 @@ def update_spot(spot_id):
         else:
             updated.pop('region', None)
 
-    if new_photos:
-        updated['photos'] = (existing.get('photos') or []) + new_photos
-    if new_thumbs:
-        updated['photoThumbs'] = (existing.get('photoThumbs') or []) + new_thumbs
+    final_photos = current_photos + (new_photos or [])
+    final_thumbs = current_thumbs + (new_thumbs or [])
+    updated['photos'] = final_photos
+    if final_thumbs:
+        updated['photoThumbs'] = final_thumbs
+    else:
+        updated.pop('photoThumbs', None)
 
     updated['updatedAt'] = now_iso()
 
