@@ -123,8 +123,12 @@ def send_mail(name, email_addr, message):
     msg['To'] = TO_ADDRESS
     msg['Reply-To'] = email_addr
     try:
+        # -f でエンベロープFrom（SMTPのMAIL FROM）も明示的にFROM_ADDRESSへ揃える。
+        # 指定しないとこのサーバーはエンベロープFromを別のアドレス
+        # (アカウント名@サーバーの共用ホスト名) に自動で書き換えてしまい、
+        # ヘッダーのFrom:と食い違うためGmail側で無言で捨てられていた（実際に発生した不具合）。
         proc = subprocess.run(
-            ['/usr/sbin/sendmail', '-t', '-i'],
+            ['/usr/sbin/sendmail', '-t', '-i', '-f', FROM_ADDRESS],
             input=msg.as_bytes(),
             capture_output=True,
             timeout=10
