@@ -79,6 +79,34 @@ body {
   font-size: 1.1rem;
 }
 
+/* SNSリンク */
+.social-links {
+  display: flex;
+  gap: 10px;
+  margin: 14px 16px 0;
+}
+
+.social-links__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.social-links__item:hover,
+.social-links__item:focus-visible {
+  transform: scale(1.08);
+}
+
+.social-links__item svg {
+  display: block;
+}
+
 /* A-1: メッセージBOX */
 .message-box {
   margin: 14px 16px;
