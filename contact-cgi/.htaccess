@@ -1,8 +1,8 @@
 RewriteEngine On
 
-# Pythonソースへの直接アクセスは拒否する
+# シークレットファイルやPythonソースへの直接アクセスは常に拒否する
 # （!-f 条件だと実在するファイルはCGIを経由せず素通しされてしまうため、先に明示的に弾く）
-RewriteRule ^app\.py$ - [F,L]
+RewriteRule ^(captcha_secret\.txt|app\.py)$ - [F,L]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^(.*)$ index.cgi/$1 [QSA,L]

@@ -1,0 +1,167 @@
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #f4f6f8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  color: #222;
+}
+
+.contact-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.contact-back {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: #1d3557;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.contact-back:hover {
+  text-decoration: underline;
+}
+
+.contact-page h1 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+  color: #1d3557;
+}
+
+.contact-intro {
+  margin: 0 0 20px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #555;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contact-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.contact-form .req {
+  color: #e53935;
+  font-weight: normal;
+}
+
+.contact-form input[type='text'],
+.contact-form input[type='email'],
+.contact-form textarea {
+  font: inherit;
+  font-weight: normal;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.contact-form textarea {
+  resize: vertical;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+  outline: 2px solid #1d3557;
+  outline-offset: 1px;
+}
+
+/* ハニーポット: 画面には出さないが、支援技術には認識させない形で隠す */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  height: 0;
+  overflow: hidden;
+}
+
+.captcha-box {
+  padding: 14px;
+  background: #eef4fb;
+  border: 1px solid #cfe0f3;
+  border-radius: 10px;
+}
+
+.captcha-question {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #1d3557;
+}
+
+.captcha-lights {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+
+.captcha-light {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s ease;
+}
+
+.captcha-light:hover {
+  transform: scale(1.06);
+}
+
+.captcha-light--selected {
+  border-color: #1d3557;
+  box-shadow: 0 0 0 3px rgba(29, 53, 87, 0.25);
+}
+
+#c-submit-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #1d3557;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#c-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.form-message {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.form-message--error {
+  color: #c62828;
+}
+
+.form-message--success {
+  color: #2e7d32;
+  font-weight: bold;
+}

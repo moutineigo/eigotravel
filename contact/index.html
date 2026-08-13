@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>お問い合わせ - おすすめマップ</title>
+  </head>
+  <body>
+    <div class="contact-page">
+      <a href="/" class="contact-back">← 地図に戻る</a>
+      <h1>お問い合わせ</h1>
+      <p class="contact-intro">ご質問・ご感想などありましたら、以下のフォームからお送りください。</p>
+
+      <form id="contact-form" class="contact-form" novalidate>
+        <label
+          >お名前 <span class="req">*</span>
+          <input type="text" id="c-name" name="name" required autocomplete="name" />
+        </label>
+
+        <label
+          >メールアドレス <span class="req">*</span>
+          <input type="email" id="c-email" name="email" required autocomplete="email" />
+        </label>
+
+        <label
+          >お問い合わせ内容
+          <textarea id="c-message" name="message" rows="6"></textarea>
+        </label>
+
+        <!-- ハニーポット: 人間には見えない項目。ボットが自動入力したら送信を弾く -->
+        <div class="hp-field" aria-hidden="true">
+          <label
+            >Website
+            <input type="text" id="c-hp" name="website" tabindex="-1" autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="captcha-box">
+          <p id="captcha-question" class="captcha-question">読み込み中…</p>
+          <div id="captcha-lights" class="captcha-lights"></div>
+        </div>
+
+        <button type="submit" id="c-submit-btn">送信する</button>
+        <p id="c-form-status" class="form-message" role="status"></p>
+      </form>
+    </div>
+    <script type="module" src="/src/contact.ts"></script>
+  </body>
+</html>

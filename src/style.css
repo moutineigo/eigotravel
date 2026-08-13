@@ -123,6 +123,27 @@ body {
   margin: 16px;
 }
 
+.menu-section--contact {
+  margin-top: 8px;
+  margin-bottom: 24px;
+}
+
+.contact-button {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: #1d3557;
+  color: #fff;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.contact-button:hover {
+  background: #16283f;
+}
+
 .menu-section__title {
   font-weight: bold;
   font-size: 0.8rem;

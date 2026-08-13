@@ -4,5 +4,6 @@ dist-admin/
 *.log
 .DS_Store
 .env.deploy
+contact-cgi/captcha_secret.txt
 migration/production-app.db
 .claude/settings.local.json

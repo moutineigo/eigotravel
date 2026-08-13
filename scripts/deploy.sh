@@ -38,7 +38,28 @@ fi
 echo "🚀 ${TARGET}:${DEPLOY_PATH} へ公開サイトをアップロードします"
 ssh "$TARGET" "mkdir -p '${DEPLOY_PATH}'"
 scp -r "$DIR/dist/index.html" "$DIR/dist/assets" "$DIR/dist/.htaccess" "${TARGET}:${DEPLOY_PATH}/"
+if [ -d "$DIR/dist/contact" ]; then
+  scp -r "$DIR/dist/contact" "${TARGET}:${DEPLOY_PATH}/"
+fi
 echo "✅ 公開サイト完了"
+
+# --- お問い合わせフォーム（公開・認証無し） ---
+if [ -d "$DIR/dist/contact" ]; then
+  CONTACT_REMOTE_DIR="${DEPLOY_PATH}/contact"
+  echo "🚀 お問い合わせAPIを ${TARGET}:${CONTACT_REMOTE_DIR}/api へアップロードします"
+  ssh "$TARGET" "mkdir -p '${CONTACT_REMOTE_DIR}/api'"
+  scp "$DIR/contact-cgi/app.py" "$DIR/contact-cgi/index.cgi" "$DIR/contact-cgi/.htaccess" "${TARGET}:${CONTACT_REMOTE_DIR}/api/"
+  ssh "$TARGET" "chmod +x '${CONTACT_REMOTE_DIR}/api/index.cgi'"
+  if [ -n "${CONTACT_CAPTCHA_SECRET:-}" ]; then
+    # シークレットはローカルにファイルとして残さず、SSH経由でサーバー上へ直接書き込む
+    ssh "$TARGET" "cat > '${CONTACT_REMOTE_DIR}/api/captcha_secret.txt'" <<< "$CONTACT_CAPTCHA_SECRET"
+    echo "✅ お問い合わせAPI完了（署名シークレット設定済み）"
+  else
+    echo "⚠️  CONTACT_CAPTCHA_SECRET が未設定のため、信号機クイズの署名シークレットが未設定です（.env.deployに追加してください）" >&2
+  fi
+else
+  echo "ℹ️  dist/contact/ が無いため、お問い合わせフォームのデプロイはスキップしました（'npm run build' 済みか確認してください）"
+fi
 
 # --- 管理画面（推測されにくいURL配下） ---
 if [ -n "${ADMIN_SECRET_PATH:-}" ]; then
