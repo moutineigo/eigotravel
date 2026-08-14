@@ -35,7 +35,7 @@ PRIVATE_DIR = os.environ.get('OSUSUME_PRIVATE_DIR') or os.path.abspath(os.path.j
 DATA_FILE = os.path.join(PRIVATE_DIR, 'contact_submissions.json')
 
 TO_ADDRESS = 'moutineigo@gmail.com'
-FROM_ADDRESS = 'eigo@eigo55.sakura.ne.jp'
+FROM_ADDRESS = 'eigo@eigo.travel'
 
 QUESTIONS = [
     ('信号機で「とまれ」を意味する色を選んでください', 'red'),
