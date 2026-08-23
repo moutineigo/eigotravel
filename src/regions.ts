@@ -7,7 +7,8 @@ export const REGIONS: Record<Region, { label: string }> = {
   ehime: { label: '愛媛' },
   miyazaki: { label: '宮崎' },
   kagoshima: { label: '鹿児島' },
-  france: { label: 'フランス' }
+  france: { label: 'フランス' },
+  malaysia: { label: 'マレーシア' }
 };
 
 export const REGION_KEYS = Object.keys(REGIONS) as Region[];

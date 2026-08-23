@@ -17,7 +17,8 @@ export type Region =
   | 'ehime'
   | 'miyazaki'
   | 'kagoshima'
-  | 'france';
+  | 'france'
+  | 'malaysia';
 
 /** 1つの「おすすめ場所」 */
 export interface Spot {

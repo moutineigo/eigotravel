@@ -15,7 +15,8 @@ export type RegionBlock =
   | 'shikoku'
   | 'kyushu'
   | 'nansei'
-  | 'france';
+  | 'france'
+  | 'malaysia';
 
 interface RegionBlockMeta {
   label: string;
@@ -35,7 +36,8 @@ export const REGION_BLOCKS: Record<RegionBlock, RegionBlockMeta> = {
   shikoku: { label: '四国', center: [33.8, 133.5], zoom: 9 },
   kyushu: { label: '九州', center: [32.8, 130.7], zoom: 8 },
   nansei: { label: '南西諸島', center: [26.5, 128.0], zoom: 8 },
-  france: { label: 'フランス', center: [44.8, 3.3], zoom: 8 }
+  france: { label: 'フランス', center: [44.8, 3.3], zoom: 8 },
+  malaysia: { label: 'マレーシア', center: [3.5, 102.5], zoom: 8 }
 };
 
 export const REGION_BLOCK_KEYS = Object.keys(REGION_BLOCKS) as RegionBlock[];
@@ -47,5 +49,6 @@ export const REGION_TO_BLOCK: Record<Region, RegionBlock> = {
   ehime: 'shikoku',
   miyazaki: 'kyushu',
   kagoshima: 'kyushu',
-  france: 'france'
+  france: 'france',
+  malaysia: 'malaysia'
 };
