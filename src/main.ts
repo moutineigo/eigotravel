@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import { createBaseMap, createSpotIcon } from './map-core';
+import { createBaseMap, createSpotIcon, createCurrentLocationIcon, addGeolocateControl } from './map-core';
 import { CATEGORIES, CATEGORY_KEYS } from './categories';
 import { REGIONS } from './regions';
 import { REGION_BLOCKS, REGION_BLOCK_KEYS, REGION_TO_BLOCK } from './region-blocks';
@@ -23,6 +23,22 @@ async function main() {
   );
   const markersLayer = L.layerGroup().addTo(map);
   const menu = setupMenuToggle(map);
+
+  let currentLocationMarker: L.Marker | null = null;
+  addGeolocateControl(map, {
+    zoom: 16,
+    onLocate: (latlng) => {
+      if (currentLocationMarker) {
+        currentLocationMarker.setLatLng(latlng);
+      } else {
+        currentLocationMarker = L.marker(latlng, {
+          icon: createCurrentLocationIcon(),
+          interactive: false,
+          zIndexOffset: 1000
+        }).addTo(map);
+      }
+    }
+  });
 
   const spots = await loadSpots();
   const entries: MarkerEntry[] = spots.map((spot) => ({

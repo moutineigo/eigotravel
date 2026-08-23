@@ -494,3 +494,35 @@ body {
   margin-top: 6px;
   font-size: 0.85rem;
 }
+
+/* 現在地に移動ボタン（右下の＋－ズームボタンの上に重ねて配置する） */
+.geolocate-btn {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 8px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.geolocate-btn:active {
+  background: #eee;
+}
+
+.geolocate-btn--loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* 現在地マーカー（Googleマップ等でおなじみの青いドット） */
+.current-location-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4285f4;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.4);
+}
