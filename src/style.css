@@ -392,11 +392,29 @@ body {
   overflow: hidden;
 }
 
-.spot-popup .photo-grid__item img {
+.spot-popup .photo-grid__item img,
+.spot-popup .photo-grid__item video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.spot-popup .photo-grid__item--video {
+  position: relative;
+}
+
+.spot-popup .photo-grid__play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.1rem;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.15);
+  pointer-events: none;
 }
 
 /* 写真の拡大表示（ライトボックス） */
@@ -414,7 +432,8 @@ body {
   display: flex;
 }
 
-.lightbox__img {
+.lightbox__img,
+.lightbox__video {
   max-width: 90vw;
   max-height: 90vh;
   object-fit: contain;

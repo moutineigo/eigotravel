@@ -63,6 +63,17 @@
             </label>
             <div id="photo-preview" class="photo-preview"></div>
 
+            <div id="existing-videos-section" hidden>
+              <label>登録済みの動画（✕で削除予約、保存で確定）</label>
+              <div id="existing-videos" class="video-preview"></div>
+            </div>
+
+            <label>
+              動画を追加（複数選択できます）
+              <input type="file" id="f-videos" accept="video/*" multiple />
+            </label>
+            <div id="video-preview" class="video-preview"></div>
+
             <button type="submit" id="f-submit-btn">この内容で登録する</button>
             <p id="form-message" class="form-message"></p>
           </form>

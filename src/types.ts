@@ -46,6 +46,12 @@ export interface Spot {
    * 無い場合はフロント側でphotosにフォールバックする（旧データ互換）
    */
   photoThumbs?: string[];
+  /**
+   * public/photos/ 以下への相対パス（例: "/photos/xxxx/v1.mp4"）。動画本体。
+   * ファイル名は photos とは別の連番("vN.ext")なので、同じディレクトリ内で衝突しない。
+   * サムネイルは生成しない（グリッド上は再生アイコンのプレースホルダー表示、拡大表示で実際に再生する）
+   */
+  videos?: string[];
   tags?: string[];
   createdAt: string;
   updatedAt: string;

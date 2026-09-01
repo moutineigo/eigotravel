@@ -15,6 +15,9 @@ interface MarkerEntry {
   block: RegionBlock | null;
 }
 
+/** ポップアップのグリッド／ライトボックスで写真と動画を同列に扱うための共通の形 */
+type MediaItem = { type: 'photo'; src: string; thumb: string } | { type: 'video'; src: string };
+
 async function main() {
   const map = createBaseMap('map');
   // ポップアップのGoogleマップアイコン(icons8)のクレジット。既存のLeaflet帰属表示に1行追加するだけにする
@@ -121,14 +124,22 @@ function renderPopup(spot: Spot): HTMLElement {
   const el = document.createElement('div');
   el.className = 'spot-popup';
 
-  // グリッドは軽量なサムネイル（無ければフルサイズにフォールバック）、拡大表示はフルサイズを使う
+  // グリッドは軽量なサムネイル（無ければフルサイズにフォールバック）、拡大表示はフルサイズを使う。
+  // 動画も同じグリッドに写真と並べて表示する（クリックで実際に再生できるのはライトボックス側）
   const photos = spot.photos ?? [];
   const thumbs = spot.photoThumbs ?? [];
-  const photoGrid = photos.length
-    ? `<div class="photo-grid">${photos
-        .map((p, i) => {
-          const thumbSrc = thumbs[i] ?? p;
-          return `<button type="button" class="photo-grid__item" data-index="${i}"><img src="${escapeAttr(thumbSrc)}" alt="" loading="lazy" /></button>`;
+  const videos = spot.videos ?? [];
+  const media: MediaItem[] = [
+    ...photos.map((p, i) => ({ type: 'photo' as const, src: p, thumb: thumbs[i] ?? p })),
+    ...videos.map((v) => ({ type: 'video' as const, src: v }))
+  ];
+  const photoGrid = media.length
+    ? `<div class="photo-grid">${media
+        .map((item, i) => {
+          if (item.type === 'video') {
+            return `<button type="button" class="photo-grid__item photo-grid__item--video" data-index="${i}"><video src="${escapeAttr(item.src)}" preload="metadata" muted playsinline></video><span class="photo-grid__play">▶</span></button>`;
+          }
+          return `<button type="button" class="photo-grid__item" data-index="${i}"><img src="${escapeAttr(item.thumb)}" alt="" loading="lazy" /></button>`;
         })
         .join('')}</div>`
     : '';
@@ -162,16 +173,16 @@ function renderPopup(spot: Spot): HTMLElement {
 
   el.querySelectorAll<HTMLButtonElement>('.photo-grid__item').forEach((btn) => {
     btn.addEventListener('click', () => {
-      openLightbox(photos, Number(btn.dataset.index));
+      openLightbox(media, Number(btn.dataset.index));
     });
   });
 
   return el;
 }
 
-/** 写真クリックで拡大表示するライトボックス。DOM上に1つだけ作って使い回す */
+/** 写真/動画クリックで拡大表示するライトボックス。DOM上に1つだけ作って使い回す */
 let lightboxEl: HTMLElement | null = null;
-let lightboxPhotos: string[] = [];
+let lightboxMedia: MediaItem[] = [];
 let lightboxIndex = 0;
 
 function getLightbox(): HTMLElement {
@@ -181,44 +192,67 @@ function getLightbox(): HTMLElement {
   overlay.className = 'lightbox';
   overlay.innerHTML = `
     <button type="button" class="lightbox__close" aria-label="閉じる">✕</button>
-    <button type="button" class="lightbox__prev" aria-label="前の写真">‹</button>
+    <button type="button" class="lightbox__prev" aria-label="前へ">‹</button>
     <img class="lightbox__img" alt="" />
-    <button type="button" class="lightbox__next" aria-label="次の写真">›</button>
+    <video class="lightbox__video" controls playsinline hidden></video>
+    <button type="button" class="lightbox__next" aria-label="次へ">›</button>
   `;
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeLightbox();
   });
   overlay.querySelector('.lightbox__close')?.addEventListener('click', closeLightbox);
-  overlay.querySelector('.lightbox__prev')?.addEventListener('click', () => showLightboxPhoto(lightboxIndex - 1));
-  overlay.querySelector('.lightbox__next')?.addEventListener('click', () => showLightboxPhoto(lightboxIndex + 1));
+  overlay.querySelector('.lightbox__prev')?.addEventListener('click', () => showLightboxItem(lightboxIndex - 1));
+  overlay.querySelector('.lightbox__next')?.addEventListener('click', () => showLightboxItem(lightboxIndex + 1));
   document.body.appendChild(overlay);
   lightboxEl = overlay;
   return overlay;
 }
 
-function showLightboxPhoto(index: number) {
-  lightboxIndex = (index + lightboxPhotos.length) % lightboxPhotos.length;
+function showLightboxItem(index: number) {
+  lightboxIndex = (index + lightboxMedia.length) % lightboxMedia.length;
   const overlay = getLightbox();
   const img = overlay.querySelector<HTMLImageElement>('.lightbox__img');
-  if (img) img.src = lightboxPhotos[lightboxIndex];
-  overlay.classList.toggle('lightbox--multi', lightboxPhotos.length > 1);
+  const video = overlay.querySelector<HTMLVideoElement>('.lightbox__video');
+  const item = lightboxMedia[lightboxIndex];
+
+  if (item.type === 'video') {
+    if (img) img.hidden = true;
+    if (video) {
+      video.src = item.src;
+      video.hidden = false;
+      void video.play().catch(() => {});
+    }
+  } else {
+    if (video) {
+      video.pause();
+      video.removeAttribute('src');
+      video.hidden = true;
+    }
+    if (img) {
+      img.src = item.src;
+      img.hidden = false;
+    }
+  }
+  overlay.classList.toggle('lightbox--multi', lightboxMedia.length > 1);
 }
 
-function openLightbox(photos: string[], index: number) {
-  lightboxPhotos = photos;
-  showLightboxPhoto(index);
+function openLightbox(media: MediaItem[], index: number) {
+  lightboxMedia = media;
+  showLightboxItem(index);
   getLightbox().classList.add('lightbox--open');
 }
 
 function closeLightbox() {
   lightboxEl?.classList.remove('lightbox--open');
+  const video = lightboxEl?.querySelector<HTMLVideoElement>('.lightbox__video');
+  video?.pause();
 }
 
 document.addEventListener('keydown', (e) => {
   if (!lightboxEl?.classList.contains('lightbox--open')) return;
   if (e.key === 'Escape') closeLightbox();
-  if (e.key === 'ArrowLeft') showLightboxPhoto(lightboxIndex - 1);
-  if (e.key === 'ArrowRight') showLightboxPhoto(lightboxIndex + 1);
+  if (e.key === 'ArrowLeft') showLightboxItem(lightboxIndex - 1);
+  if (e.key === 'ArrowRight') showLightboxItem(lightboxIndex + 1);
 });
 
 /** B: 右上に常時表示するカテゴリの表示/非表示パネル。開閉できるようにする */

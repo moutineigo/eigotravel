@@ -29,6 +29,10 @@ const el = {
   photoPreview: document.getElementById('photo-preview') as HTMLElement,
   existingPhotosSection: document.getElementById('existing-photos-section') as HTMLElement,
   existingPhotos: document.getElementById('existing-photos') as HTMLElement,
+  videos: document.getElementById('f-videos') as HTMLInputElement,
+  videoPreview: document.getElementById('video-preview') as HTMLElement,
+  existingVideosSection: document.getElementById('existing-videos-section') as HTMLElement,
+  existingVideos: document.getElementById('existing-videos') as HTMLElement,
   form: document.getElementById('spot-form') as HTMLFormElement,
   submitBtn: document.getElementById('f-submit-btn') as HTMLButtonElement,
   message: document.getElementById('form-message') as HTMLElement,
@@ -54,6 +58,8 @@ let currentPage = 1;
 let editingId: string | null = null;
 /** 編集中に「削除予約」した既存写真のURL（保存時にまとめてサーバーへ送る） */
 let removedPhotoUrls = new Set<string>();
+/** 編集中に「削除予約」した既存動画のURL（保存時にまとめてサーバーへ送る） */
+let removedVideoUrls = new Set<string>();
 
 let previewUrls: string[] = [];
 /** 変換後（JPEG化後）の実際にアップロードするファイル一覧（フルサイズ） */
@@ -157,6 +163,52 @@ el.photos.addEventListener('change', () => {
     console.error(err);
     setMessage('写真の処理に失敗しました', 'error');
   });
+});
+
+/** 選択中の動画ファイル（写真と違いJPEG変換等はせず、そのままアップロードする） */
+let videoPreviewUrls: string[] = [];
+let preparedVideos: File[] = [];
+
+function clearVideoPreview() {
+  for (const url of videoPreviewUrls) URL.revokeObjectURL(url);
+  videoPreviewUrls = [];
+  preparedVideos = [];
+  el.videoPreview.innerHTML = '';
+}
+
+/** 選択した動画をそのままプレビュー表示する（再生確認用） */
+function handleVideoSelection(files: FileList | null) {
+  clearVideoPreview();
+  if (!files || files.length === 0) return;
+
+  preparedVideos = Array.from(files);
+  for (const file of preparedVideos) {
+    const url = URL.createObjectURL(file);
+    videoPreviewUrls.push(url);
+
+    const item = document.createElement('div');
+    item.className = 'video-preview__item';
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.preload = 'metadata';
+    item.appendChild(video);
+    el.videoPreview.appendChild(item);
+  }
+
+  const countEl = document.createElement('div');
+  countEl.className = 'photo-preview__count';
+  countEl.textContent = `${preparedVideos.length}本選択中`;
+  el.videoPreview.appendChild(countEl);
+}
+
+el.videos.addEventListener('change', () => {
+  try {
+    handleVideoSelection(el.videos.files);
+  } catch (err) {
+    console.error(err);
+    setMessage('動画の処理に失敗しました', 'error');
+  }
 });
 
 function initCategorySelect() {
@@ -461,6 +513,51 @@ function renderExistingPhotos(spot: Spot) {
   }
 }
 
+function renderExistingVideos(spot: Spot) {
+  removedVideoUrls = new Set();
+  el.existingVideos.innerHTML = '';
+
+  const videos = spot.videos ?? [];
+  if (videos.length === 0) {
+    el.existingVideosSection.hidden = true;
+    return;
+  }
+  el.existingVideosSection.hidden = false;
+
+  for (const url of videos) {
+    const item = document.createElement('div');
+    item.className = 'video-preview__item video-preview__item--existing';
+
+    const video = document.createElement('video');
+    video.src = import.meta.env.DEV ? `${API_BASE}${url}` : url;
+    video.controls = true;
+    video.preload = 'metadata';
+    item.appendChild(video);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'photo-preview__remove';
+    toggleBtn.textContent = '✕';
+    toggleBtn.title = 'この動画を削除予約する';
+    toggleBtn.addEventListener('click', () => {
+      if (removedVideoUrls.has(url)) {
+        removedVideoUrls.delete(url);
+        item.classList.remove('video-preview__item--removed');
+        toggleBtn.textContent = '✕';
+        toggleBtn.title = 'この動画を削除予約する';
+      } else {
+        removedVideoUrls.add(url);
+        item.classList.add('video-preview__item--removed');
+        toggleBtn.textContent = '↺';
+        toggleBtn.title = '削除予約を取り消す';
+      }
+    });
+    item.appendChild(toggleBtn);
+
+    el.existingVideos.appendChild(item);
+  }
+}
+
 /** 一覧の「編集」から呼ばれる。フォームに既存の内容を読み込み、更新モードに切り替える */
 function startEdit(spot: Spot) {
   editingId = spot.id;
@@ -474,6 +571,8 @@ function startEdit(spot: Spot) {
   el.tags.value = (spot.tags ?? []).join(', ');
   clearPhotoPreview();
   renderExistingPhotos(spot);
+  clearVideoPreview();
+  renderExistingVideos(spot);
 
   const latlng = L.latLng(spot.lat, spot.lng);
   setPin(latlng);
@@ -498,6 +597,10 @@ function cancelEdit() {
   removedPhotoUrls = new Set();
   el.existingPhotos.innerHTML = '';
   el.existingPhotosSection.hidden = true;
+  clearVideoPreview();
+  removedVideoUrls = new Set();
+  el.existingVideos.innerHTML = '';
+  el.existingVideosSection.hidden = true;
   if (pinMarker) {
     map.removeLayer(pinMarker);
     pinMarker = null;
@@ -555,6 +658,12 @@ el.form.addEventListener('submit', async (e) => {
   }
   if (removedPhotoUrls.size > 0) {
     fd.set('removePhotos', JSON.stringify([...removedPhotoUrls]));
+  }
+  for (const file of preparedVideos) {
+    fd.append('videos', file);
+  }
+  if (removedVideoUrls.size > 0) {
+    fd.set('removeVideos', JSON.stringify([...removedVideoUrls]));
   }
 
   const isEditing = editingId !== null;

@@ -13,7 +13,8 @@ const PHOTOS_DIR = path.join(PUBLIC_DIR, 'photos');
 const PORT = 5175;
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+// 動画込みで大きくなり得るため上限を緩めに設定（300MB。本番のFlask側と揃える）
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 300 * 1024 * 1024 } });
 
 // ローカル開発専用なので緩いCORSでOK
 app.use((req, res, next) => {
@@ -53,24 +54,46 @@ function parseTags(raw) {
     .filter(Boolean);
 }
 
+const ALLOWED_PHOTO_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic']);
+const ALLOWED_VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm']);
+
 /**
- * startIndex: ファイル名の連番の開始値（デフォルト1）。編集で写真を追加するときは、
- * 既存の写真の続きの番号から採番しないと同名ファイルを上書きしてしまう（実際に事故った）。
+ * startIndex: ファイル名の連番の開始値（デフォルト1）。編集で追加するときは、
+ * 既存ファイルの続きの番号から採番しないと同名ファイルを上書きしてしまう（実際に事故った）。
+ * namePrefix: 写真('')と動画('v')でファイル名の採番を別系統にするための接頭辞。
  */
-async function saveUploadedPhotos(id, files, suffix = '', startIndex = 1) {
+async function saveUploadedFiles(
+  id,
+  files,
+  { namePrefix = '', suffix = '', startIndex = 1, allowed = ALLOWED_PHOTO_EXTENSIONS, fallbackExt = '.jpg' } = {}
+) {
   if (!files || files.length === 0) return [];
   const dir = path.join(PHOTOS_DIR, id);
   await fs.mkdir(dir, { recursive: true });
   const paths = [];
   let i = startIndex;
   for (const file of files) {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const filename = `${i}${suffix}${ext}`;
+    const rawExt = path.extname(file.originalname).toLowerCase();
+    const ext = allowed.has(rawExt) ? rawExt : fallbackExt;
+    const filename = `${namePrefix}${i}${suffix}${ext}`;
     await fs.writeFile(path.join(dir, filename), file.buffer);
     paths.push(`/photos/${id}/${filename}`);
     i++;
   }
   return paths;
+}
+
+async function saveUploadedPhotos(id, files, suffix = '', startIndex = 1) {
+  return saveUploadedFiles(id, files, { suffix, startIndex });
+}
+
+async function saveUploadedVideos(id, files, startIndex = 1) {
+  return saveUploadedFiles(id, files, {
+    namePrefix: 'v',
+    startIndex,
+    allowed: ALLOWED_VIDEO_EXTENSIONS,
+    fallbackExt: '.mp4'
+  });
 }
 
 /**
@@ -142,7 +165,8 @@ app.get('/api/spots', async (_req, res) => {
 
 const uploadPhotoFields = upload.fields([
   { name: 'photos', maxCount: 8 },
-  { name: 'thumbnails', maxCount: 8 }
+  { name: 'thumbnails', maxCount: 8 },
+  { name: 'videos', maxCount: 5 }
 ]);
 
 app.post('/api/spots', uploadPhotoFields, async (req, res) => {
@@ -153,6 +177,7 @@ app.post('/api/spots', uploadPhotoFields, async (req, res) => {
   const id = makeId();
   const photos = await saveUploadedPhotos(id, req.files?.photos);
   const photoThumbs = await saveUploadedPhotos(id, req.files?.thumbnails, '.thumb');
+  const videos = await saveUploadedVideos(id, req.files?.videos);
   const now = new Date().toISOString();
   const spot = {
     id,
@@ -166,6 +191,7 @@ app.post('/api/spots', uploadPhotoFields, async (req, res) => {
     url: url || '',
     photos,
     photoThumbs: photoThumbs.length > 0 ? photoThumbs : undefined,
+    videos: videos.length > 0 ? videos : undefined,
     tags: parseTags(tags),
     createdAt: now,
     updatedAt: now
@@ -182,12 +208,37 @@ app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
 
   const existing = spots[idx];
-  const { name, category, region, lat, lng, description, address, url, tags, removePhotos } = req.body;
+  const { name, category, region, lat, lng, description, address, url, tags, removePhotos, removeVideos } =
+    req.body;
   // 既存の写真の続き番号から採番する（1から採番し直すと既存ファイルを上書きしてしまう）。
   // 削除予約があっても、新規アップロードの採番は「削除前の元の枚数」基準のままにする
   // （削除処理と採番を同じ基準にすると、削除した番号を新規ファイルが再利用してしまい、
   //  ブラウザキャッシュ等と衝突するリスクがあるため）。
   const startIndex = (existing.photos?.length ?? 0) + 1;
+  const videoStartIndex = (existing.videos?.length ?? 0) + 1;
+
+  let currentVideos = existing.videos ?? [];
+  if (removeVideos) {
+    let removeVideoUrls;
+    try {
+      removeVideoUrls = JSON.parse(removeVideos);
+    } catch {
+      removeVideoUrls = [];
+    }
+    if (Array.isArray(removeVideoUrls) && removeVideoUrls.length > 0) {
+      const removeSet = new Set(removeVideoUrls);
+      const keepVideos = [];
+      for (const url of currentVideos) {
+        if (removeSet.has(url)) {
+          const relVideo = url.replace(/^\/photos\//, '');
+          await fs.rm(path.join(PHOTOS_DIR, relVideo), { force: true });
+        } else {
+          keepVideos.push(url);
+        }
+      }
+      currentVideos = keepVideos;
+    }
+  }
 
   let currentPhotos = existing.photos ?? [];
   let currentThumbs = existing.photoThumbs ?? [];
@@ -227,9 +278,11 @@ app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
 
   const newPhotos = await saveUploadedPhotos(existing.id, req.files?.photos, '', startIndex);
   const newThumbs = await saveUploadedPhotos(existing.id, req.files?.thumbnails, '.thumb', startIndex);
+  const newVideos = await saveUploadedVideos(existing.id, req.files?.videos, videoStartIndex);
 
   const finalPhotos = [...currentPhotos, ...newPhotos];
   const finalThumbs = [...currentThumbs, ...newThumbs];
+  const finalVideos = [...currentVideos, ...newVideos];
 
   const updated = {
     ...existing,
@@ -244,6 +297,7 @@ app.put('/api/spots/:id', uploadPhotoFields, async (req, res) => {
     tags: tags !== undefined ? parseTags(tags) : existing.tags,
     photos: finalPhotos,
     photoThumbs: finalThumbs.length > 0 ? finalThumbs : undefined,
+    videos: finalVideos.length > 0 ? finalVideos : undefined,
     updatedAt: new Date().toISOString()
   };
   spots[idx] = updated;

@@ -26,6 +26,7 @@ except ImportError:
     HAS_PILLOW = False
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 300 * 1024 * 1024  # 動画込みで大きくなり得るため上限を緩めに設定（300MB）
 
 # api/app.py から見て www/ は2階層上（www/<secret>/api/app.py）。
 # OSUSUME_WWW_DIR を設定すればローカル検証時に任意のフォルダへ差し替えられる。
@@ -34,7 +35,13 @@ WWW_DIR = os.environ.get('OSUSUME_WWW_DIR') or os.path.abspath(os.path.join(BASE
 DATA_FILE = os.path.join(WWW_DIR, 'data', 'spots.json')
 PHOTOS_DIR = os.path.join(WWW_DIR, 'photos')
 
-ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'}
+ALLOWED_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'}
+ALLOWED_VIDEO_EXTENSIONS = {'.mp4', '.mov', '.m4v', '.webm'}
+
+
+@app.errorhandler(413)
+def handle_too_large(_e):
+    return jsonify({'error': 'アップロードのサイズが大きすぎます（動画込みで300MBまで）'}), 413
 
 
 def read_spots():
@@ -63,16 +70,18 @@ def parse_tags(raw):
     return [t.strip() for t in raw.split(',') if t.strip()]
 
 
-def safe_ext(filename):
+def safe_ext(filename, allowed=ALLOWED_PHOTO_EXTENSIONS, fallback='.jpg'):
     ext = os.path.splitext(filename or '')[1].lower()
-    return ext if ext in ALLOWED_EXTENSIONS else '.jpg'
+    return ext if ext in allowed else fallback
 
 
-def save_photos(spot_id, files, suffix='', start_index=1):
+def save_files(spot_id, files, name_prefix='', suffix='', start_index=1,
+                allowed=ALLOWED_PHOTO_EXTENSIONS, fallback_ext='.jpg'):
     """
     アップロードされたファイルを保存する。戻り値は (公開URLのリスト, 保存先絶対パスのリスト)。
-    start_index: ファイル名の連番の開始値。編集で写真を追加するときは、
-    既存の写真の続きの番号から採番しないと同名ファイルを上書きしてしまう（実際に事故った）。
+    start_index: ファイル名の連番の開始値。編集で追加するときは、
+    既存ファイルの続きの番号から採番しないと同名ファイルを上書きしてしまう（実際に事故った）。
+    name_prefix: 写真('')と動画('v')でファイル名の採番を別系統にするための接頭辞。
     """
     urls, abs_paths = [], []
     valid_files = [f for f in files if f and f.filename]
@@ -82,12 +91,23 @@ def save_photos(spot_id, files, suffix='', start_index=1):
     os.makedirs(dir_path, exist_ok=True)
     for offset, file in enumerate(valid_files):
         i = start_index + offset
-        filename = f'{i}{suffix}{safe_ext(file.filename)}'
+        filename = f'{name_prefix}{i}{suffix}{safe_ext(file.filename, allowed, fallback_ext)}'
         abs_path = os.path.join(dir_path, filename)
         file.save(abs_path)
         urls.append(f'/photos/{spot_id}/{filename}')
         abs_paths.append(abs_path)
     return urls, abs_paths
+
+
+def save_photos(spot_id, files, suffix='', start_index=1):
+    return save_files(spot_id, files, suffix=suffix, start_index=start_index)
+
+
+def save_videos(spot_id, files, start_index=1):
+    return save_files(
+        spot_id, files, name_prefix='v', start_index=start_index,
+        allowed=ALLOWED_VIDEO_EXTENSIONS, fallback_ext='.mp4'
+    )
 
 
 def _delete_photo_file(url):
@@ -253,6 +273,7 @@ def create_spot():
     photos, photo_thumbs = save_photos_with_thumbs(
         spot_id, request.files.getlist('photos'), request.files.getlist('thumbnails')
     )
+    videos, _ = save_videos(spot_id, request.files.getlist('videos'))
     now = now_iso()
     region = (request.form.get('region') or '').strip()
 
@@ -272,6 +293,8 @@ def create_spot():
     }
     if photo_thumbs:
         spot['photoThumbs'] = photo_thumbs
+    if videos:
+        spot['videos'] = videos
     if region:
         spot['region'] = region
 
@@ -313,6 +336,11 @@ def update_spot(spot_id):
         start_index=existing_photo_count + 1
     )
 
+    existing_video_count = len(existing.get('videos') or [])
+    new_videos, _ = save_videos(
+        spot_id, request.files.getlist('videos'), start_index=existing_video_count + 1
+    )
+
     current_photos = list(existing.get('photos') or [])
     current_thumbs = list(existing.get('photoThumbs') or [])
     remove_raw = request.form.get('removePhotos')
@@ -336,6 +364,22 @@ def update_spot(spot_id):
                         keep_thumbs.append(thumb_url)
             current_photos = keep_photos
             current_thumbs = keep_thumbs
+
+    current_videos = list(existing.get('videos') or [])
+    remove_videos_raw = request.form.get('removeVideos')
+    if remove_videos_raw:
+        try:
+            remove_video_urls = set(json.loads(remove_videos_raw))
+        except (ValueError, TypeError):
+            remove_video_urls = set()
+        if remove_video_urls:
+            keep_videos = []
+            for url in current_videos:
+                if url in remove_video_urls:
+                    _delete_photo_file(url)
+                else:
+                    keep_videos.append(url)
+            current_videos = keep_videos
 
     updated = dict(existing)
     name = request.form.get('name')
@@ -365,11 +409,16 @@ def update_spot(spot_id):
 
     final_photos = current_photos + (new_photos or [])
     final_thumbs = current_thumbs + (new_thumbs or [])
+    final_videos = current_videos + (new_videos or [])
     updated['photos'] = final_photos
     if final_thumbs:
         updated['photoThumbs'] = final_thumbs
     else:
         updated.pop('photoThumbs', None)
+    if final_videos:
+        updated['videos'] = final_videos
+    else:
+        updated.pop('videos', None)
 
     updated['updatedAt'] = now_iso()
 
