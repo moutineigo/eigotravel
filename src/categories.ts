@@ -12,6 +12,7 @@ export const CATEGORIES: Record<Category, CategoryMeta> = {
   shrine: { label: '神社', color: '#e63946', icon: '⛩️' },
   temple: { label: '寺', color: '#6a4c93', icon: '🛕' },
   onsen: { label: '温泉・銭湯', color: '#118ab2', icon: '♨️' },
+  water: { label: '水', color: '#48cae4', icon: '💧' },
   gourmet: { label: 'グルメ', color: '#f4a261', icon: '🍴' },
   sightseeing: { label: '観光名所', color: '#2a9d8f', icon: '🏞️' },
   lodging: { label: '宿泊施設', color: '#8d99ae', icon: '🏨' },

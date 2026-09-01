@@ -3,6 +3,7 @@ export type Category =
   | 'shrine'
   | 'temple'
   | 'onsen'
+  | 'water'
   | 'gourmet'
   | 'sightseeing'
   | 'lodging'
