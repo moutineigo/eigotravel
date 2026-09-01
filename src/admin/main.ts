@@ -324,7 +324,16 @@ function renderExisting(spots: Spot[]) {
   existingLayer.clearLayers();
   for (const spot of spots) {
     const marker = L.marker([spot.lat, spot.lng], { icon: createSpotIcon(spot.category) });
-    marker.bindPopup(`<b>${escapeHtml(spot.name)}</b>`);
+    const popupBtn = document.createElement('button');
+    popupBtn.type = 'button';
+    popupBtn.className = 'popup-edit-btn';
+    popupBtn.textContent = spot.name;
+    popupBtn.title = 'クリックして編集';
+    popupBtn.addEventListener('click', () => {
+      marker.closePopup();
+      startEdit(spot);
+    });
+    marker.bindPopup(popupBtn);
     existingLayer.addLayer(marker);
   }
 
@@ -569,10 +578,6 @@ el.form.addEventListener('submit', async (e) => {
 function setMessage(text: string, kind: 'ok' | 'error') {
   el.message.textContent = text;
   el.message.className = `form-message ${kind}`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 initCategorySelect();

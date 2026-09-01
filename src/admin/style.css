@@ -43,6 +43,27 @@ body {
   inset: 0;
 }
 
+/* 地図ピンの吹き出し内、タイトル部分をクリックすると編集画面へ遷移するボタン */
+.popup-edit-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: bold;
+  text-align: left;
+  color: #1d3557;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.popup-edit-btn:hover,
+.popup-edit-btn:active {
+  color: #16283f;
+}
+
 /* 地図上に重ねる「Googleマップリンク/場所名で検索」ボックス */
 .locate-box {
   position: absolute;
