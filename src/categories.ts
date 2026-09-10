@@ -18,6 +18,7 @@ export const CATEGORIES: Record<Category, CategoryMeta> = {
   lodging: { label: '宿泊施設', color: '#8d99ae', icon: '🏨' },
   church: { label: '教会', color: '#9d4edd', icon: '⛪' },
   shop: { label: 'ショップ', color: '#ffb703', icon: '🛍️' },
+  running: { label: 'ランニング', color: '#06d6a0', icon: '🏃' },
   other: { label: 'その他', color: '#6c757d', icon: '📍' }
 };
 

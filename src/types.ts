@@ -9,6 +9,7 @@ export type Category =
   | 'lodging'
   | 'church'
   | 'shop'
+  | 'running'
   | 'other';
 
 /** 都道府県 or 国。増やしたくなったら regions.ts と合わせて追加する */
