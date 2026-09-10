@@ -3,7 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { createBaseMap, createSpotIcon, createNewSpotIcon } from '../map-core';
 import { CATEGORIES, CATEGORY_KEYS } from '../categories';
-import { REGIONS, REGION_KEYS } from '../regions';
+import { REGIONS, REGION_KEYS, DEFAULT_REGION } from '../regions';
 import type { Spot, Category, Region } from '../types';
 
 // 開発時(vite dev)はローカルのAPIサーバー(admin-server/)、
@@ -225,8 +225,11 @@ function initRegionSelect() {
     const opt = document.createElement('option');
     opt.value = key;
     opt.textContent = REGIONS[key].label;
+    // defaultSelected にしておくと、登録のたびに form.reset() されても初期値が維持される
+    if (key === DEFAULT_REGION) opt.defaultSelected = true;
     el.region.appendChild(opt);
   }
+  el.region.value = DEFAULT_REGION;
 }
 
 function initFilterRegionSelect() {
