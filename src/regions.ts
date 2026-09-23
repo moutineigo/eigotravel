@@ -59,4 +59,4 @@ export const REGIONS: Record<Region, { label: string }> = {
 export const REGION_KEYS = Object.keys(REGIONS) as Region[];
 
 /** 新規スポット登録フォームの「地域」の初期選択（滞在地に合わせて随時変える運用上の都合） */
-export const DEFAULT_REGION: Region = 'aomori';
+export const DEFAULT_REGION: Region = 'iwate';
